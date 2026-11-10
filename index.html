@@ -20,7 +20,7 @@
 <option value="1">2階</option>
 </select>
 </label>
-<p>家具を床にドラッグするか、家具を選んで配置したい場所をタップしてください。</p>
+<p>家具を床にドラッグするか、家具を選んで配置したい場所をタップしてください。空いている場所をドラッグすると視点を回転できます。</p>
 <div class="catalog" aria-label="家具一覧">
 <button data-piece="sofa">ソファ</button><button data-piece="table">テーブル</button><button data-piece="chair">椅子</button>
 </div>
@@ -55,7 +55,7 @@ const notice = document.getElementById('stage-notice');
 if (location.protocol === 'file:') {
     notice.textContent = '3Dモデルを表示するには、Abrir QRIE.cmd を起動してください。';
 } else {
-    import('./editor.js?v=multi-room-floor').then(() => notice.remove()).catch(error => {
+    import('./editor.js?v=orbit-view').then(() => notice.remove()).catch(error => {
         console.error(error);
         notice.textContent = '3Dモデルを読み込めませんでした。ブラウザーでWebGLが有効か確認してください。';
     });

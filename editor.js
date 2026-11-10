@@ -287,27 +287,38 @@ for (const button of catalog) {
 }
 
 const canvas = renderer.domElement;
+const orbit = new THREE.Spherical().setFromVector3(camera.position);
 let drag = null;
 canvas.addEventListener('pointerdown', event => {
-    if (event.button !== 0 || drag) return;
+    if (event.button !== 0 || drag || gesture) return;
     const point = pointAt(event);
     if (!point) return;
     if (armed && onFloor(point)) {
         addPiece(armed, point);
         return;
     }
+
     const hit = ray.intersectObjects(activeFloor.pieces.children, true)[0];
     selected = hit?.object.parent ?? null;
-    if (selected) {
-        drag = { id: event.pointerId, offset: selected.position.clone().sub(point) };
-        canvas.setPointerCapture(event.pointerId);
-    }
-    updateControls(selected ? furniture[selected.userData.type].name + 'を選択しました。' : '配置する家具を選んでください。');
+    drag = selected
+        ? { id: event.pointerId, offset: selected.position.clone().sub(point) }
+        : { id: event.pointerId, x: event.clientX, y: event.clientY };
+    canvas.setPointerCapture(event.pointerId);
+    updateControls(selected ? furniture[selected.userData.type].name + 'を選択しました。' : '空いている場所をドラッグすると視点を回転できます。');
 });
 canvas.addEventListener('pointermove', event => {
-    if (drag?.id !== event.pointerId || !selected) return;
-    const point = pointAt(event);
-    if (point) position(selected, point.add(drag.offset));
+    if (drag?.id !== event.pointerId) return;
+    if (drag.offset) {
+        const point = pointAt(event);
+        if (selected && point) position(selected, point.add(drag.offset));
+    } else {
+        orbit.theta -= (event.clientX - drag.x) * .008;
+        orbit.phi = THREE.MathUtils.clamp(orbit.phi - (event.clientY - drag.y) * .008, .12, 1.25);
+        drag.x = event.clientX;
+        drag.y = event.clientY;
+        camera.position.setFromSpherical(orbit);
+        camera.lookAt(0, 0, 0);
+    }
     draw();
 });
 for (const name of ['pointerup', 'pointercancel', 'lostpointercapture']) {
