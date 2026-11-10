@@ -113,6 +113,23 @@ function makePiece(type) {
     return piece;
 }
 
+const pieceTemplates = new Map();
+for (const button of catalog) {
+    const type = button.dataset.piece;
+    const template = makePiece(type);
+    pieceTemplates.set(type, template);
+    const size = new THREE.Box3().setFromObject(template).getSize(new THREE.Vector3());
+    const centimeters = meters => Math.round(meters * 1000) / 10;
+    const width = centimeters(size.x);
+    const depth = centimeters(size.z);
+    const height = centimeters(size.y);
+    const dimensions = document.createElement('small');
+    dimensions.className = 'piece-dimensions';
+    dimensions.textContent = width + ' × ' + depth + ' × ' + height + ' cm';
+    dimensions.setAttribute('aria-label', '幅 ' + width + '、奥行き ' + depth + '、高さ ' + height + ' センチメートル');
+    button.append(dimensions);
+}
+
 const ray = new THREE.Raycaster();
 const floor = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 const pointer = new THREE.Vector2();
@@ -168,7 +185,7 @@ function position(piece, point) {
     piece.position.set(THREE.MathUtils.clamp(point.x, -3 + x, 3 - x), 0, THREE.MathUtils.clamp(point.z, -2.5 + z, 2.5 - z));
 }
 function addPiece(type, point) {
-    selected = makePiece(type);
+    selected = pieceTemplates.get(type).clone();
     activeFloor.pieces.add(selected);
     position(selected, point);
     armed = null;
@@ -190,7 +207,7 @@ for (const button of catalog) {
         const point = pointAt(event);
         if (onFloor(point)) {
             if (!gesture.draft) {
-                gesture.draft = makePiece(type);
+                gesture.draft = pieceTemplates.get(type).clone();
                 activeFloor.pieces.add(gesture.draft);
             }
             gesture.draft.visible = true;

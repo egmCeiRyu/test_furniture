@@ -34,3 +34,7 @@ select { min-height: 44px; padding: 6px 10px; font: inherit; border: 1px solid #
 .ar-source { position: fixed; top: 0; left: -2px; width: 1px; height: 1px; pointer-events: none; }
 
 #stage-notice { margin: 0; padding: 24px; }
+
+#dimensions-key { margin-bottom: 6px; font-size: .78rem; }
+.catalog button { text-align: left; }
+.piece-dimensions { display: block; font-size: .75rem; white-space: nowrap; }
