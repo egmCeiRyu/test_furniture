@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>QRIE · Editor de móveis</title>
+<link rel="stylesheet" href="./style.css">
+<script type="importmap">{"imports":{"three":"./vendor/three/build/three.module.js","three/addons/":"./vendor/three/examples/jsm/"}}</script>
+<script type="module" src="./vendor/model-viewer/dist/model-viewer.min.js"></script>
+
+</head>
+<body>
+<header><strong>QRIE</strong><span>Editor de móveis · Teste local</span></header>
+<main>
+<aside>
+<h1>Monte a sua sala</h1>
+<p>Arraste uma peça para o piso ou escolha a peça e toque onde quer colocá-la.</p>
+<div class="catalog" aria-label="Catálogo">
+<button data-piece="sofa">Sofá</button><button data-piece="table">Mesa</button><button data-piece="chair">Cadeira</button>
+</div>
+<label>Cor das paredes <input id="wall-color" type="color" value="#e8ded0"></label>
+<label>Escala em AR
+<select id="ar-scale">
+<option>10%</option><option>20%</option><option>30%</option><option>40%</option><option>50%</option>
+<option>60%</option><option>70%</option><option>80%</option><option>90%</option><option selected>100%</option>
+</select>
+</label>
+<hr>
+<p id="status" role="status">Escolha um móvel para começar.</p>
+<div class="actions">
+<button id="rotate" disabled>Girar 45°</button><button id="remove" disabled>Remover</button>
+</div>
+<button id="preview" class="primary">Ver resultado</button>
+</aside>
+<section class="workspace" aria-label="Editor 3D">
+<div id="stage"><p id="stage-notice" role="status">Carregando a sala em 3D…</p></div>
+<div id="result" hidden>
+<model-viewer id="viewer" alt="Sala com os móveis nas posições escolhidas" camera-controls touch-action="pan-y" shadow-intensity="1"></model-viewer>
+<model-viewer id="ar-viewer" class="ar-source" loading="eager" alt="Sala na escala escolhida" ar ar-modes="webxr quick-look"><span slot="ar-button"></span></model-viewer>
+<div class="result-actions"><button id="launch-ar" disabled>Ver em AR</button><button id="back">Voltar à edição</button><a id="download" download="sala-qrie.glb">Baixar GLB</a></div>
+</div>
+</section>
+</main>
+<script>
+const notice = document.getElementById('stage-notice');
+if (location.protocol === 'file:') {
+    notice.textContent = 'Abra o arquivo Abrir QRIE.cmd para carregar a sala em 3D.';
+} else {
+    import('./editor.js').then(() => notice.remove()).catch(error => {
+        console.error(error);
+        notice.textContent = 'Não foi possível carregar a sala em 3D. Verifique se o WebGL está habilitado no navegador.';
+    });
+}
+</script>
+</body>
+</html>
