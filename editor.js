@@ -44,21 +44,39 @@ scene.add(new THREE.HemisphereLight(0xffffff, 0x9a8d7a, 2.4));
 const light = new THREE.DirectionalLight(0xffffff, 2);
 light.position.set(3, 8, 6);
 scene.add(light);
-const room = new THREE.Group();
-const pieces = new THREE.Group();
-room.add(pieces);
-scene.add(room);
-
-const wall = new THREE.MeshStandardMaterial({ color: '#e8ded0', roughness: 0.85 });
 function box(parent, width, height, depth, x, y, z, color) {
     const material = typeof color === 'string' ? new THREE.MeshStandardMaterial({ color, roughness: 0.8 }) : color;
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), material);
     mesh.position.set(x, y, z);
     parent.add(mesh);
 }
-box(room, 6, .12, 5, 0, -.06, 0, '#d2af86');
-box(room, 6, 2.35, .12, 0, 1.175, -2.56, wall);
-box(room, .12, 2.35, 5, -3.06, 1.175, 0, wall);
+
+function createFloor(name, floorColor, wallColor) {
+    const room = new THREE.Group();
+    room.name = name;
+    const pieces = new THREE.Group();
+    const wall = new THREE.MeshStandardMaterial({ color: wallColor, roughness: 0.85 });
+    room.add(pieces);
+    const surface = new THREE.Mesh(
+        new THREE.PlaneGeometry(6, 5),
+        new THREE.MeshStandardMaterial({ color: floorColor, roughness: 0.8 })
+    );
+    surface.name = 'Piso';
+    surface.rotation.x = -Math.PI / 2;
+    room.add(surface);
+    box(room, 6, 2.35, .12, 0, 1.175, -2.56, wall);
+    box(room, .12, 2.35, 5, -3.06, 1.175, 0, wall);
+    return { room, pieces, wall };
+}
+
+const floors = [
+    createFloor('Primeiro andar', '#d2af86', '#e8ded0'),
+    createFloor('Segundo andar', '#b89b80', '#e1e8ec')
+];
+const floorSelect = document.querySelector('#floor-select');
+let activeFloor = floors[Number(floorSelect.value)];
+scene.add(activeFloor.room);
+
 const grid = new THREE.GridHelper(6, 12, 0x8c755e, 0xbaa58d);
 grid.position.y = .002;
 grid.scale.z = 5 / 6;
@@ -151,7 +169,7 @@ function position(piece, point) {
 }
 function addPiece(type, point) {
     selected = makePiece(type);
-    pieces.add(selected);
+    activeFloor.pieces.add(selected);
     position(selected, point);
     armed = null;
     updateControls(furniture[type].name + ' colocado. Arraste para ajustar.');
@@ -173,7 +191,7 @@ for (const button of catalog) {
         if (onFloor(point)) {
             if (!gesture.draft) {
                 gesture.draft = makePiece(type);
-                pieces.add(gesture.draft);
+                activeFloor.pieces.add(gesture.draft);
             }
             gesture.draft.visible = true;
             position(gesture.draft, point);
@@ -184,13 +202,13 @@ for (const button of catalog) {
         if (gesture?.id !== event.pointerId) return;
         const draft = gesture.draft;
         gesture = null;
-        if (draft) pieces.remove(draft);
+        if (draft) activeFloor.pieces.remove(draft);
         const point = pointAt(event);
         if (moved && onFloor(point)) addPiece(type, point);
         else draw();
     });
     button.addEventListener('pointercancel', () => {
-        if (gesture?.draft) pieces.remove(gesture.draft);
+        if (gesture?.draft) activeFloor.pieces.remove(gesture.draft);
         gesture = null;
         draw();
     });
@@ -212,7 +230,7 @@ canvas.addEventListener('pointerdown', event => {
         addPiece(armed, point);
         return;
     }
-    const hit = ray.intersectObjects(pieces.children, true)[0];
+    const hit = ray.intersectObjects(activeFloor.pieces.children, true)[0];
     selected = hit?.object.parent ?? null;
     if (selected) {
         drag = { id: event.pointerId, offset: selected.position.clone().sub(point) };
@@ -239,26 +257,39 @@ rotate.addEventListener('click', () => {
 });
 remove.addEventListener('click', () => {
     if (!selected) return;
-    pieces.remove(selected);
+    activeFloor.pieces.remove(selected);
     selected = null;
     updateControls('Móvel removido.');
 });
 const wallColor = document.querySelector('#wall-color');
+wallColor.value = '#' + activeFloor.wall.color.getHexString();
+floorSelect.addEventListener('change', () => {
+    if (gesture?.draft) activeFloor.pieces.remove(gesture.draft);
+    gesture = null;
+    drag = null;
+    selected = null;
+    armed = null;
+    scene.remove(activeFloor.room);
+    activeFloor = floors[Number(floorSelect.value)];
+    scene.add(activeFloor.room);
+    wallColor.value = '#' + activeFloor.wall.color.getHexString();
+    updateControls(activeFloor.room.name + ' selecionado.');
+});
 wallColor.addEventListener('input', event => {
-    wall.color.set(event.target.value);
+    activeFloor.wall.color.set(event.target.value);
     draw();
 });
 
 preview.addEventListener('click', async () => {
     if (gesture || drag) return;
-    const editingControls = [...catalog, wallColor, arScale, rotate, remove, preview];
+    const editingControls = [...catalog, wallColor, arScale, floorSelect, rotate, remove, preview];
     for (const control of editingControls) control.disabled = true;
     try {
         const exporter = new GLTFExporter();
-        const buffer = await exporter.parseAsync(room, { binary: true });
+        const buffer = await exporter.parseAsync(activeFloor.room, { binary: true });
         const percent = Number.parseInt(arScale.value, 10);
         const scale = percent === 100 ? 1 : percent / 200;
-        const arRoom = room.clone();
+        const arRoom = activeFloor.room.clone();
         arRoom.scale.setScalar(scale);
         const arBuffer = scale === 1 ? buffer : await exporter.parseAsync(arRoom, { binary: true });
         if (arUrl) URL.revokeObjectURL(arUrl);
@@ -271,16 +302,16 @@ preview.addEventListener('click', async () => {
         download.href = modelUrl;
         stage.hidden = true;
         result.hidden = false;
-        status.textContent = 'Prévia final da sala com os móveis colocados.';
+        status.textContent = activeFloor.room.name + ' pronto. No AR, o piso é colocado no chão real.';
     } catch (error) {
         console.error(error);
-        for (const control of [...catalog, wallColor, arScale, preview]) control.disabled = false;
+        for (const control of [...catalog, wallColor, arScale, floorSelect, preview]) control.disabled = false;
         updateControls('Não foi possível preparar a prévia.');
     }
 });
 document.querySelector('#back').addEventListener('click', () => {
     result.hidden = true;
     stage.hidden = false;
-    for (const control of [...catalog, wallColor, arScale, preview]) control.disabled = false;
+    for (const control of [...catalog, wallColor, arScale, floorSelect, preview]) control.disabled = false;
     updateControls('Edição retomada.');
 });

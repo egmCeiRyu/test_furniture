@@ -14,6 +14,12 @@
 <main>
 <aside>
 <h1>Monte a sua sala</h1>
+<label>Andar
+<select id="floor-select">
+<option value="0">Primeiro andar</option>
+<option value="1">Segundo andar</option>
+</select>
+</label>
 <p>Arraste uma peça para o piso ou escolha a peça e toque onde quer colocá-la.</p>
 <div class="catalog" aria-label="Catálogo">
 <button data-piece="sofa">Sofá</button><button data-piece="table">Mesa</button><button data-piece="chair">Cadeira</button>
@@ -46,7 +52,7 @@ const notice = document.getElementById('stage-notice');
 if (location.protocol === 'file:') {
     notice.textContent = 'Abra o arquivo Abrir QRIE.cmd para carregar a sala em 3D.';
 } else {
-    import('./editor.js').then(() => notice.remove()).catch(error => {
+    import('./editor.js?v=two-floors').then(() => notice.remove()).catch(error => {
         console.error(error);
         notice.textContent = 'Não foi possível carregar a sala em 3D. Verifique se o WebGL está habilitado no navegador.';
     });
