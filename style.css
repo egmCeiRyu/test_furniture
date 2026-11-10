@@ -35,6 +35,26 @@ select { min-height: 44px; padding: 6px 10px; font: inherit; border: 1px solid #
 
 #stage-notice { margin: 0; padding: 24px; }
 
-#dimensions-key { margin-bottom: 6px; font-size: .78rem; }
-.catalog button { text-align: left; }
-.piece-dimensions { display: block; font-size: .75rem; white-space: nowrap; }
+
+#stage { position: relative; }
+#size-flag {
+    position: absolute;
+    z-index: 1;
+    padding: 6px 9px;
+    transform: translate(-50%, calc(-100% - 8px));
+    background: #142e54;
+    color: white;
+    font-size: .75rem;
+    font-weight: 650;
+    white-space: nowrap;
+    pointer-events: none;
+}
+#size-flag::after {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: #142e54;
+    content: "";
+}

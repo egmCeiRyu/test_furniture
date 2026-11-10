@@ -114,21 +114,19 @@ function makePiece(type) {
 }
 
 const pieceTemplates = new Map();
+const centimeters = meters => Math.round(meters * 1000) / 10;
 for (const button of catalog) {
     const type = button.dataset.piece;
-    const template = makePiece(type);
-    pieceTemplates.set(type, template);
-    const size = new THREE.Box3().setFromObject(template).getSize(new THREE.Vector3());
-    const centimeters = meters => Math.round(meters * 1000) / 10;
-    const width = centimeters(size.x);
-    const depth = centimeters(size.z);
-    const height = centimeters(size.y);
-    const dimensions = document.createElement('small');
-    dimensions.className = 'piece-dimensions';
-    dimensions.textContent = width + ' × ' + depth + ' × ' + height + ' cm';
-    dimensions.setAttribute('aria-label', '幅 ' + width + '、奥行き ' + depth + '、高さ ' + height + ' センチメートル');
-    button.append(dimensions);
+    const model = makePiece(type);
+    const bounds = new THREE.Box3().setFromObject(model);
+    const size = bounds.getSize(new THREE.Vector3());
+    const dimensions = [size.x, size.z, size.y].map(centimeters).join(' × ');
+    pieceTemplates.set(type, { model, top: bounds.max.y, dimensions });
 }
+
+const sizeFlag = document.querySelector('#size-flag');
+const flagPosition = new THREE.Vector3();
+let flaggedType = null;
 
 const ray = new THREE.Raycaster();
 const floor = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -145,6 +143,23 @@ function draw() {
     selection.visible = !!selected;
     if (selected) selection.setFromObject(selected);
     renderer.render(scene, camera);
+    sizeFlag.hidden = !selected;
+    if (!selected || !stage.clientWidth) return;
+
+    const type = selected.userData.type;
+    const { top, dimensions } = pieceTemplates.get(type);
+    if (flaggedType !== type) {
+        sizeFlag.textContent = furniture[type].name + ' · ' + dimensions + ' cm';
+        flaggedType = type;
+    }
+    flagPosition.copy(selected.position);
+    flagPosition.y += top;
+    flagPosition.project(camera);
+    const x = (flagPosition.x + 1) * stage.clientWidth / 2;
+    const y = (1 - flagPosition.y) * stage.clientHeight / 2;
+    const halfWidth = sizeFlag.offsetWidth / 2;
+    sizeFlag.style.left = THREE.MathUtils.clamp(x, halfWidth + 4, stage.clientWidth - halfWidth - 4) + 'px';
+    sizeFlag.style.top = Math.max(y, sizeFlag.offsetHeight + 13) + 'px';
 }
 function resize() {
     const { clientWidth: width, clientHeight: height } = stage;
@@ -185,7 +200,7 @@ function position(piece, point) {
     piece.position.set(THREE.MathUtils.clamp(point.x, -3 + x, 3 - x), 0, THREE.MathUtils.clamp(point.z, -2.5 + z, 2.5 - z));
 }
 function addPiece(type, point) {
-    selected = pieceTemplates.get(type).clone();
+    selected = pieceTemplates.get(type).model.clone();
     activeFloor.pieces.add(selected);
     position(selected, point);
     armed = null;
@@ -207,7 +222,7 @@ for (const button of catalog) {
         const point = pointAt(event);
         if (onFloor(point)) {
             if (!gesture.draft) {
-                gesture.draft = pieceTemplates.get(type).clone();
+                gesture.draft = pieceTemplates.get(type).model.clone();
                 activeFloor.pieces.add(gesture.draft);
             }
             gesture.draft.visible = true;

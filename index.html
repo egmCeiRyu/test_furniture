@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>QRIE · 家具配置エディター</title>
-<link rel="stylesheet" href="./style.css?v=furniture-dimensions">
+<link rel="stylesheet" href="./style.css?v=furniture-size-flag">
 <script type="importmap">{"imports":{"three":"./vendor/three/build/three.module.js","three/addons/":"./vendor/three/examples/jsm/"}}</script>
 <script type="module" src="./vendor/model-viewer/dist/model-viewer.min.js"></script>
 
@@ -21,8 +21,7 @@
 </select>
 </label>
 <p>家具を床にドラッグするか、家具を選んで配置したい場所をタップしてください。</p>
-<p id="dimensions-key">サイズ（幅 × 奥行き × 高さ）</p>
-<div class="catalog" aria-label="家具一覧" aria-describedby="dimensions-key">
+<div class="catalog" aria-label="家具一覧">
 <button data-piece="sofa">ソファ</button><button data-piece="table">テーブル</button><button data-piece="chair">椅子</button>
 </div>
 <label>壁の色 <input id="wall-color" type="color" value="#e8ded0"></label>
@@ -40,7 +39,10 @@
 <button id="preview" class="primary">配置を確認</button>
 </aside>
 <section class="workspace" aria-label="3Dエディター">
-<div id="stage"><p id="stage-notice" role="status">3Dモデルを読み込んでいます…</p></div>
+<div id="stage">
+<p id="stage-notice" role="status">3Dモデルを読み込んでいます…</p>
+<div id="size-flag" aria-live="polite" hidden></div>
+</div>
 <div id="result" hidden>
 <model-viewer id="viewer" alt="家具を配置した部屋" camera-controls touch-action="pan-y" shadow-intensity="1"></model-viewer>
 <model-viewer id="ar-viewer" class="ar-source" loading="eager" alt="選択した縮尺の部屋" ar ar-modes="webxr quick-look"><span slot="ar-button"></span></model-viewer>
@@ -53,7 +55,7 @@ const notice = document.getElementById('stage-notice');
 if (location.protocol === 'file:') {
     notice.textContent = '3Dモデルを表示するには、Abrir QRIE.cmd を起動してください。';
 } else {
-    import('./editor.js?v=furniture-dimensions').then(() => notice.remove()).catch(error => {
+    import('./editor.js?v=furniture-size-flag').then(() => notice.remove()).catch(error => {
         console.error(error);
         notice.textContent = '3Dモデルを読み込めませんでした。ブラウザーでWebGLが有効か確認してください。';
     });
