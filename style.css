@@ -58,3 +58,15 @@ select { min-height: 44px; padding: 6px 10px; font: inherit; border: 1px solid #
     border-top-color: #142e54;
     content: "";
 }
+
+.room-label {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    padding: 3px 6px;
+    background: #ffffffed;
+    color: #142e54;
+    font-size: .73rem;
+    font-weight: 650;
+    white-space: nowrap;
+    pointer-events: none;
+}

@@ -51,35 +51,62 @@ function box(parent, width, height, depth, x, y, z, color) {
     parent.add(mesh);
 }
 
-function createFloor(name, floorColor, wallColor) {
+const floorWidth = 8;
+const floorDepth = 6;
+const zones = [
+    { name: 'リビング', x: -2, z: 0, width: 4, depth: 6, colors: ['#d2af86', '#b89b80'] },
+    { name: 'キッチン', x: 2, z: -1.5, width: 4, depth: 3, colors: ['#c2c8bb', '#c9d1cf'] },
+    { name: '寝室', x: 2, z: 1.5, width: 4, depth: 3, colors: ['#dbb8a5', '#d8bdac'] }
+];
+
+function createFloor(name, level, wallColor) {
     const room = new THREE.Group();
     room.name = name;
     const pieces = new THREE.Group();
     const wall = new THREE.MeshStandardMaterial({ color: wallColor, roughness: 0.85 });
     room.add(pieces);
-    const surface = new THREE.Mesh(
-        new THREE.PlaneGeometry(6, 5),
-        new THREE.MeshStandardMaterial({ color: floorColor, roughness: 0.8 })
-    );
-    surface.name = 'Piso';
-    surface.rotation.x = -Math.PI / 2;
-    room.add(surface);
-    box(room, 6, 2.35, .12, 0, 1.175, -2.56, wall);
-    box(room, .12, 2.35, 5, -3.06, 1.175, 0, wall);
+    for (const zone of zones) {
+        const surface = new THREE.Mesh(
+            new THREE.PlaneGeometry(zone.width, zone.depth),
+            new THREE.MeshStandardMaterial({ color: zone.colors[level], roughness: 0.8 })
+        );
+        surface.name = zone.name;
+        surface.rotation.x = -Math.PI / 2;
+        surface.position.set(zone.x, 0, zone.z);
+        room.add(surface);
+    }
+
+    box(room, floorWidth, 2.35, .12, 0, 1.175, -3.06, wall);
+    box(room, .12, 2.35, floorDepth, -4.06, 1.175, 0, wall);
+
+    // Each doorway leaves a one-meter gap in the central partition.
+    for (const z of [-2.5, -0.5, 0.5, 2.5]) {
+        box(room, .12, 2.35, 1, 0, 1.175, z, wall);
+    }
+    box(room, 4, 2.35, .12, 2, 1.175, 0, wall);
     return { room, pieces, wall };
 }
 
 const floors = [
-    createFloor('1階', '#d2af86', '#e8ded0'),
-    createFloor('2階', '#b89b80', '#e1e8ec')
+    createFloor('1階', 0, '#e8ded0'),
+    createFloor('2階', 1, '#e1e8ec')
 ];
+const roomLabels = zones.map(zone => {
+    const label = document.createElement('span');
+    label.className = 'room-label';
+    label.textContent = zone.name;
+    stage.append(label);
+    return { label, point: new THREE.Vector3(zone.x, 0.04, zone.z) };
+});
+const labelProjection = new THREE.Vector3();
+
 const floorSelect = document.querySelector('#floor-select');
 let activeFloor = floors[Number(floorSelect.value)];
 scene.add(activeFloor.room);
 
-const grid = new THREE.GridHelper(6, 12, 0x8c755e, 0xbaa58d);
+const grid = new THREE.GridHelper(floorWidth, 16, 0x8c755e, 0xbaa58d);
 grid.position.y = .002;
-grid.scale.z = 5 / 6;
+grid.scale.z = floorDepth / floorWidth;
 scene.add(grid);
 
 const furniture = {
@@ -143,6 +170,11 @@ function draw() {
     selection.visible = !!selected;
     if (selected) selection.setFromObject(selected);
     renderer.render(scene, camera);
+    for (const { label, point } of roomLabels) {
+        labelProjection.copy(point).project(camera);
+        label.style.left = (labelProjection.x + 1) * 50 + '%';
+        label.style.top = (1 - labelProjection.y) * 50 + '%';
+    }
     sizeFlag.hidden = !selected;
     if (!selected || !stage.clientWidth) return;
 
@@ -165,7 +197,7 @@ function resize() {
     const { clientWidth: width, clientHeight: height } = stage;
     if (!width || !height) return;
     const aspect = width / height;
-    const half = Math.max(3.75, 4.3 / aspect);
+    const half = Math.max(4.6, 5.4 / aspect);
     camera.left = -half * aspect;
     camera.right = half * aspect;
     camera.top = half;
@@ -189,7 +221,7 @@ function pointAt(event) {
     return ray.ray.intersectPlane(floor, new THREE.Vector3());
 }
 function onFloor(point) {
-    return point && Math.abs(point.x) <= 3 && Math.abs(point.z) <= 2.5;
+    return point && Math.abs(point.x) <= floorWidth / 2 && Math.abs(point.z) <= floorDepth / 2;
 }
 function position(piece, point) {
     const { width, depth } = furniture[piece.userData.type];
@@ -197,7 +229,9 @@ function position(piece, point) {
     const s = Math.abs(Math.sin(piece.rotation.y));
     const x = (c * width + s * depth) / 2;
     const z = (s * width + c * depth) / 2;
-    piece.position.set(THREE.MathUtils.clamp(point.x, -3 + x, 3 - x), 0, THREE.MathUtils.clamp(point.z, -2.5 + z, 2.5 - z));
+    const xLimit = floorWidth / 2 - x;
+    const zLimit = floorDepth / 2 - z;
+    piece.position.set(THREE.MathUtils.clamp(point.x, -xLimit, xLimit), 0, THREE.MathUtils.clamp(point.z, -zLimit, zLimit));
 }
 function addPiece(type, point) {
     selected = pieceTemplates.get(type).model.clone();

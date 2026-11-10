@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>QRIE · 家具配置エディター</title>
-<link rel="stylesheet" href="./style.css?v=furniture-size-flag">
+<link rel="stylesheet" href="./style.css?v=multi-room-floor">
 <script type="importmap">{"imports":{"three":"./vendor/three/build/three.module.js","three/addons/":"./vendor/three/examples/jsm/"}}</script>
 <script type="module" src="./vendor/model-viewer/dist/model-viewer.min.js"></script>
 
@@ -55,7 +55,7 @@ const notice = document.getElementById('stage-notice');
 if (location.protocol === 'file:') {
     notice.textContent = '3Dモデルを表示するには、Abrir QRIE.cmd を起動してください。';
 } else {
-    import('./editor.js?v=furniture-size-flag').then(() => notice.remove()).catch(error => {
+    import('./editor.js?v=multi-room-floor').then(() => notice.remove()).catch(error => {
         console.error(error);
         notice.textContent = '3Dモデルを読み込めませんでした。ブラウザーでWebGLが有効か確認してください。';
     });
