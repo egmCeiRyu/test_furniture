@@ -16,12 +16,12 @@ const launchAR = document.querySelector('#launch-ar');
 let arUrl = null;
 arViewer.addEventListener('load', () => {
     launchAR.disabled = !arViewer.canActivateAR;
-    if (!arViewer.canActivateAR) status.textContent = 'Prévia 3D pronta. O AR depende de um celular e navegador compatíveis.';
+    if (!arViewer.canActivateAR) status.textContent = '3Dプレビューを表示しています。ARを見るには、対応するスマートフォンとブラウザーが必要です。';
 });
 launchAR.addEventListener('click', () => {
     arViewer.activateAR().catch(error => {
         console.error(error);
-        status.textContent = 'Não foi possível iniciar o AR neste aparelho.';
+        status.textContent = 'この端末ではARを起動できませんでした。';
     });
 });
 const scene = new THREE.Scene();
@@ -30,7 +30,7 @@ let renderer;
 try {
     renderer = new THREE.WebGLRenderer({ antialias: true });
 } catch (error) {
-    status.textContent = 'Este navegador não conseguiu abrir o WebGL.';
+    status.textContent = 'このブラウザーではWebGLを起動できませんでした。';
     for (const button of [...catalog, preview]) button.disabled = true;
     throw error;
 }
@@ -70,8 +70,8 @@ function createFloor(name, floorColor, wallColor) {
 }
 
 const floors = [
-    createFloor('Primeiro andar', '#d2af86', '#e8ded0'),
-    createFloor('Segundo andar', '#b89b80', '#e1e8ec')
+    createFloor('1階', '#d2af86', '#e8ded0'),
+    createFloor('2階', '#b89b80', '#e1e8ec')
 ];
 const floorSelect = document.querySelector('#floor-select');
 let activeFloor = floors[Number(floorSelect.value)];
@@ -83,9 +83,9 @@ grid.scale.z = 5 / 6;
 scene.add(grid);
 
 const furniture = {
-    sofa: { name: 'Sofá', width: 2, depth: .9 },
-    table: { name: 'Mesa', width: 1.3, depth: .8 },
-    chair: { name: 'Cadeira', width: .55, depth: .55 }
+    sofa: { name: 'ソファ', width: 2, depth: .9 },
+    table: { name: 'テーブル', width: 1.3, depth: .8 },
+    chair: { name: '椅子', width: .55, depth: .55 }
 };
 function makePiece(type) {
     const piece = new THREE.Group();
@@ -172,7 +172,7 @@ function addPiece(type, point) {
     activeFloor.pieces.add(selected);
     position(selected, point);
     armed = null;
-    updateControls(furniture[type].name + ' colocado. Arraste para ajustar.');
+    updateControls(furniture[type].name + 'を配置しました。ドラッグして位置を調整できます。');
 }
 for (const button of catalog) {
     const type = button.dataset.piece;
@@ -216,7 +216,7 @@ for (const button of catalog) {
         if (!result.hidden || (event.detail && moved)) return;
         armed = type;
         selected = null;
-        updateControls('Toque no piso para colocar: ' + furniture[type].name);
+        updateControls(furniture[type].name + 'を置きたい場所をタップしてください。');
     });
 }
 
@@ -236,7 +236,7 @@ canvas.addEventListener('pointerdown', event => {
         drag = { id: event.pointerId, offset: selected.position.clone().sub(point) };
         canvas.setPointerCapture(event.pointerId);
     }
-    updateControls(selected ? furniture[selected.userData.type].name + ' selecionado.' : 'Escolha um móvel para começar.');
+    updateControls(selected ? furniture[selected.userData.type].name + 'を選択しました。' : '配置する家具を選んでください。');
 });
 canvas.addEventListener('pointermove', event => {
     if (drag?.id !== event.pointerId || !selected) return;
@@ -259,7 +259,7 @@ remove.addEventListener('click', () => {
     if (!selected) return;
     activeFloor.pieces.remove(selected);
     selected = null;
-    updateControls('Móvel removido.');
+    updateControls('家具を削除しました。');
 });
 const wallColor = document.querySelector('#wall-color');
 wallColor.value = '#' + activeFloor.wall.color.getHexString();
@@ -273,7 +273,7 @@ floorSelect.addEventListener('change', () => {
     activeFloor = floors[Number(floorSelect.value)];
     scene.add(activeFloor.room);
     wallColor.value = '#' + activeFloor.wall.color.getHexString();
-    updateControls(activeFloor.room.name + ' selecionado.');
+    updateControls(activeFloor.room.name + 'を選択しました。');
 });
 wallColor.addEventListener('input', event => {
     activeFloor.wall.color.set(event.target.value);
@@ -302,16 +302,16 @@ preview.addEventListener('click', async () => {
         download.href = modelUrl;
         stage.hidden = true;
         result.hidden = false;
-        status.textContent = activeFloor.room.name + ' pronto. No AR, o piso é colocado no chão real.';
+        status.textContent = activeFloor.room.name + 'の配置を確認できます。ARでは、この階の床が実際の床と同じ高さになります。';
     } catch (error) {
         console.error(error);
         for (const control of [...catalog, wallColor, arScale, floorSelect, preview]) control.disabled = false;
-        updateControls('Não foi possível preparar a prévia.');
+        updateControls('プレビューを作成できませんでした。');
     }
 });
 document.querySelector('#back').addEventListener('click', () => {
     result.hidden = true;
     stage.hidden = false;
     for (const control of [...catalog, wallColor, arScale, floorSelect, preview]) control.disabled = false;
-    updateControls('Edição retomada.');
+    updateControls('編集に戻りました。');
 });
