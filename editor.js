@@ -549,12 +549,17 @@ preview.addEventListener('click', async () => {
             );
             object.material = Array.isArray(object.material) ? restored : restored[0];
         });
-        const buffer = await exporter.parseAsync(completeRoom, { binary: true });
         const percent = Number.parseInt(arScale.value, 10);
         const scale = percent === 100 ? 1 : percent / 200;
         const arRoom = completeRoom.clone();
         arRoom.scale.setScalar(scale);
-        const arBuffer = scale === 1 ? buffer : await exporter.parseAsync(arRoom, { binary: true });
+        const arBuffer = await exporter.parseAsync(arRoom, { binary: true });
+        completeRoom.traverse(object => {
+            if (!object.isMesh) return;
+            const materials = Array.isArray(object.material) ? object.material : [object.material];
+            if (materials.some(material => material.name === 'roof')) object.visible = false;
+        });
+        const buffer = await exporter.parseAsync(completeRoom, { binary: true });
         if (arUrl) URL.revokeObjectURL(arUrl);
         arUrl = URL.createObjectURL(new Blob([arBuffer], { type: 'model/gltf-binary' }));
         launchAR.disabled = true;
