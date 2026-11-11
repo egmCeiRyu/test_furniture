@@ -6,7 +6,7 @@ const stage = document.querySelector('#stage');
 const status = document.querySelector('#status');
 const rotate = document.querySelector('#rotate');
 const remove = document.querySelector('#remove');
-const catalogResponse = await fetch('./furniture-catalog.json');
+const catalogResponse = await fetch('./furniture-catalog.json', { cache: 'no-store' });
 if (!catalogResponse.ok) throw new Error('Furniture catalog unavailable');
 const entries = await catalogResponse.json();
 const furniture = Object.fromEntries(entries.map(entry => [entry.id, entry]));
