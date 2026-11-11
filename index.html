@@ -46,7 +46,7 @@
 <div id="size-flag" aria-live="polite" hidden></div>
 </div>
 <div id="result" hidden>
-<model-viewer id="ar-viewer" class="ar-source" loading="eager" alt="選択した縮尺の部屋" ar ar-modes="webxr quick-look"><span slot="ar-button"></span></model-viewer>
+<model-viewer id="ar-viewer" class="ar-source" loading="eager" alt="選択した縮尺の部屋" ar ar-modes="webxr quick-look" ar-usdz-max-texture-size="1024"><span slot="ar-button"></span></model-viewer>
 <div class="result-actions"><button id="launch-ar" disabled>ARで見る</button><button id="back">編集に戻る</button></div>
 </div>
 </section>
@@ -71,7 +71,7 @@ const notice = document.getElementById('stage-notice');
 if (location.protocol === 'file:') {
     notice.textContent = '3Dモデルを表示するには、Abrir QRIE.cmd を起動してください。';
 } else {
-    import('./editor.js?v=wallpaper-color-mode').then(() => notice.remove()).catch(error => {
+    import('./editor.js?v=ios-ar-ready').then(() => notice.remove()).catch(error => {
         console.error(error);
         notice.textContent = '3Dモデルを読み込めませんでした。接続を確認してページを再読み込みしてください。';
     });

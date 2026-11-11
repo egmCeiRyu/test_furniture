@@ -40,13 +40,42 @@ const arViewer = document.querySelector('#ar-viewer');
 const arScale = document.querySelector('#ar-scale');
 const launchAR = document.querySelector('#launch-ar');
 let arUrl = null;
+let iosArUrl = null;
+const usesQuickLook = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 let previewRoom = null;
 let previewZoom = 1;
 const previewPointers = new Map();
 let pinchDistance = 0;
-arViewer.addEventListener('load', () => {
-    launchAR.disabled = !arViewer.canActivateAR;
-    if (!arViewer.canActivateAR) status.textContent = '3Dプレビューを表示しています。ARを見るには、対応するスマートフォンとブラウザーが必要です。';
+arViewer.addEventListener('load', async () => {
+    const source = arViewer.src;
+    launchAR.disabled = true;
+    try {
+        if (usesQuickLook) {
+            status.textContent = 'iPhone用のARモデルを準備しています…';
+            const url = await arViewer.prepareUSDZ();
+            if (!url) throw new Error('USDZ conversion returned no model');
+            if (arViewer.src !== source) {
+                URL.revokeObjectURL(url);
+                return;
+            }
+            if (iosArUrl) URL.revokeObjectURL(iosArUrl);
+            iosArUrl = url;
+            arViewer.iosSrc = url;
+            await arViewer.updateComplete;
+        }
+        launchAR.disabled = !arViewer.canActivateAR;
+        status.textContent = arViewer.canActivateAR
+            ? 'ARモデルの準備ができました。「ARで見る」を押してください。'
+            : '3Dプレビューを表示しています。ARを見るには、対応するスマートフォンとブラウザーが必要です。';
+    } catch (error) {
+        console.error(error);
+        status.textContent = 'iPhone用のARモデルを生成できませんでした。編集に戻って、もう一度お試しください。';
+    }
+});
+arViewer.addEventListener('error', () => {
+    launchAR.disabled = true;
+    status.textContent = 'ARモデルを読み込めませんでした。編集に戻って、もう一度お試しください。';
 });
 launchAR.addEventListener('click', () => {
     arViewer.activateAR().catch(error => {
@@ -844,6 +873,7 @@ preview.addEventListener('click', async () => {
         if (arUrl) URL.revokeObjectURL(arUrl);
         arUrl = URL.createObjectURL(new Blob([arBuffer], { type: 'model/gltf-binary' }));
         launchAR.disabled = true;
+        arViewer.removeAttribute('ios-src');
         arViewer.src = arUrl;
         selected = null;
         armed = null;
