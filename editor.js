@@ -36,11 +36,14 @@ for (const entry of entries) {
 const catalog = [...catalogContainer.querySelectorAll('button')];
 const preview = document.querySelector('#preview');
 const result = document.querySelector('#result');
-const viewer = document.querySelector('#viewer');
 const arViewer = document.querySelector('#ar-viewer');
 const arScale = document.querySelector('#ar-scale');
 const launchAR = document.querySelector('#launch-ar');
 let arUrl = null;
+let previewRoom = null;
+let previewZoom = 1;
+const previewPointers = new Map();
+let pinchDistance = 0;
 arViewer.addEventListener('load', () => {
     launchAR.disabled = !arViewer.canActivateAR;
     if (!arViewer.canActivateAR) status.textContent = '3Dプレビューを表示しています。ARを見るには、対応するスマートフォンとブラウザーが必要です。';
@@ -459,7 +462,6 @@ const pointer = new THREE.Vector2();
 let armed = null;
 let selected = null;
 let gesture = null;
-let modelUrl = null;
 const selection = new THREE.BoxHelper(new THREE.Object3D(), 0x245e9b);
 selection.visible = false;
 scene.add(selection);
@@ -496,12 +498,16 @@ function resize() {
 function fitCamera(aspect = stage.clientWidth / stage.clientHeight) {
     if (!Number.isFinite(aspect) || aspect <= 0) return;
     activeFloor.room.updateMatrixWorld(true);
-    const bounds = activeFloor.floorBounds.clone();
-    activeFloor.architecture.traverse(object => {
-        if (object.isMesh && object.visible) bounds.union(new THREE.Box3().setFromObject(object));
-    });
-    if (activeFloor.pieces.children.length) {
-        bounds.union(new THREE.Box3().setFromObject(activeFloor.pieces));
+    const bounds = previewRoom
+        ? new THREE.Box3().setFromObject(previewRoom)
+        : activeFloor.floorBounds.clone();
+    if (!previewRoom) {
+        activeFloor.architecture.traverse(object => {
+            if (object.isMesh && object.visible) bounds.union(new THREE.Box3().setFromObject(object));
+        });
+        if (activeFloor.pieces.children.length) {
+            bounds.union(new THREE.Box3().setFromObject(activeFloor.pieces));
+        }
     }
     const sphere = bounds.getBoundingSphere(new THREE.Sphere());
     const radius = sphere.radius + sphere.center.distanceTo(cameraTarget);
@@ -510,6 +516,7 @@ function fitCamera(aspect = stage.clientWidth / stage.clientHeight) {
     camera.right = halfHeight * aspect;
     camera.top = halfHeight;
     camera.bottom = -halfHeight;
+    camera.zoom = previewRoom ? previewZoom : 1;
     camera.updateProjectionMatrix();
 }
 new ResizeObserver(resize).observe(stage);
@@ -672,7 +679,19 @@ const canvas = renderer.domElement;
 const orbit = new THREE.Spherical().setFromVector3(camera.position.clone().sub(cameraTarget));
 let drag = null;
 canvas.addEventListener('pointerdown', event => {
-    if (event.button !== 0 || drag || gesture) return;
+    if (event.button !== 0) return;
+    if (previewRoom) {
+        previewPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        if (previewPointers.size === 2) {
+            pinchDistance = previewPointerDistance();
+            drag = null;
+        } else {
+            drag = { id: event.pointerId, x: event.clientX, y: event.clientY };
+        }
+        canvas.setPointerCapture(event.pointerId);
+        return;
+    }
+    if (drag || gesture) return;
     const point = pointAt(event);
     if (!point) return;
     if (!wallpaperDraft && armed && onFloor(point)) {
@@ -689,7 +708,21 @@ canvas.addEventListener('pointerdown', event => {
     canvas.setPointerCapture(event.pointerId);
     updateControls(selected ? furniture[selected.userData.type].name + 'を選択しました。' : '空いている場所をドラッグすると視点を回転できます。');
 });
+function previewPointerDistance() {
+    const [a, b] = [...previewPointers.values()];
+    return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0;
+}
 canvas.addEventListener('pointermove', event => {
+    if (previewRoom && previewPointers.has(event.pointerId)) {
+        previewPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        if (previewPointers.size === 2) {
+            const distance = previewPointerDistance();
+            if (pinchDistance > 0) previewZoom = THREE.MathUtils.clamp(previewZoom * distance / pinchDistance, 0.5, 3);
+            pinchDistance = distance;
+            resize();
+            return;
+        }
+    }
     if (drag?.id !== event.pointerId) return;
     if (drag.offset) {
         const point = pointAt(event);
@@ -706,9 +739,22 @@ canvas.addEventListener('pointermove', event => {
 });
 for (const name of ['pointerup', 'pointercancel', 'lostpointercapture']) {
     canvas.addEventListener(name, event => {
+        if (previewRoom) {
+            previewPointers.delete(event.pointerId);
+            pinchDistance = 0;
+            const remaining = [...previewPointers.entries()][0];
+            drag = remaining ? { id: remaining[0], ...remaining[1] } : null;
+            return;
+        }
         if (drag?.id === event.pointerId) drag = null;
     });
 }
+canvas.addEventListener('wheel', event => {
+    if (!previewRoom) return;
+    event.preventDefault();
+    previewZoom = THREE.MathUtils.clamp(previewZoom * Math.exp(-event.deltaY * 0.001), 0.5, 3);
+    resize();
+}, { passive: false });
 rotate.addEventListener('click', () => {
     if (!selected) return;
     selected.rotation.y += Math.PI / 4;
@@ -785,21 +831,28 @@ preview.addEventListener('click', async () => {
         const arRoom = completeRoom.clone();
         arRoom.scale.setScalar(scale);
         const arBuffer = await exporter.parseAsync(arRoom, { binary: true });
-        completeRoom.traverse(object => {
+        previewRoom = activeFloor.room.clone();
+        previewRoom.traverse(object => {
+            object.visible = true;
             if (!object.isMesh) return;
             const materials = Array.isArray(object.material) ? object.material : [object.material];
-            if (materials.some(material => material.name === 'roof')) object.visible = false;
+            object.visible = !materials.some(material => material.name === 'roof');
+            const copies = materials.map(material => material.clone());
+            object.material = Array.isArray(object.material) ? copies : copies[0];
         });
-        const buffer = await exporter.parseAsync(completeRoom, { binary: true });
         if (arUrl) URL.revokeObjectURL(arUrl);
         arUrl = URL.createObjectURL(new Blob([arBuffer], { type: 'model/gltf-binary' }));
         launchAR.disabled = true;
         arViewer.src = arUrl;
-        if (modelUrl) URL.revokeObjectURL(modelUrl);
-        modelUrl = URL.createObjectURL(new Blob([buffer], { type: 'model/gltf-binary' }));
-        viewer.src = modelUrl;
-        stage.hidden = true;
+        selected = null;
+        armed = null;
+        drag = null;
+        previewPointers.clear();
+        previewZoom = 1;
+        scene.remove(activeFloor.room);
+        scene.add(previewRoom);
         result.hidden = false;
+        resize();
         status.textContent = activeFloor.room.name + 'の配置を確認できます。ARでは、この階の床が実際の床と同じ高さになります。';
     } catch (error) {
         console.error(error);
@@ -808,8 +861,20 @@ preview.addEventListener('click', async () => {
     }
 });
 document.querySelector('#back').addEventListener('click', () => {
+    if (previewRoom) {
+        scene.remove(previewRoom);
+        previewRoom.traverse(object => {
+            if (!object.isMesh) return;
+            const materials = Array.isArray(object.material) ? object.material : [object.material];
+            for (const material of materials) material.dispose();
+        });
+        previewRoom = null;
+        scene.add(activeFloor.room);
+    }
+    previewPointers.clear();
+    drag = null;
     result.hidden = true;
-    stage.hidden = false;
+    resize();
     for (const control of [...catalog, showWalls, wallColor, wallpaperButton, arScale, floorSelect, preview]) control.disabled = false;
     updateControls('編集に戻りました。');
 });
