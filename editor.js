@@ -681,22 +681,11 @@ canvas.addEventListener('pointerdown', event => {
     }
 
     const hit = ray.intersectObjects(activeFloor.pieces.children, true)[0];
-    const architectureHit = ray.intersectObject(activeFloor.architecture, true)
-        .find(hit => hit.object.visible);
-    const hitMaterial = architectureHit && (Array.isArray(architectureHit.object.material)
-        ? architectureHit.object.material[architectureHit.face?.materialIndex ?? 0]
-        : architectureHit.object.material);
-    const wallHit = hitMaterial?.name === 'internalWall' ? architectureHit : null;
-    const wallIsClosest = wallHit && (!hit || wallHit.distance < hit.distance);
-    selected = wallpaperDraft || wallIsClosest ? null : hit?.object ?? null;
+    selected = wallpaperDraft ? null : hit?.object ?? null;
     while (selected && !selected.userData.type) selected = selected.parent;
     drag = selected
         ? { id: event.pointerId, offset: selected.getWorldPosition(new THREE.Vector3()).sub(point) }
-        : {
-            id: event.pointerId, x: event.clientX, y: event.clientY,
-            startX: event.clientX, startY: event.clientY, moved: false,
-            wallHit: !wallpaperDraft && !!wallHit
-        };
+        : { id: event.pointerId, x: event.clientX, y: event.clientY };
     canvas.setPointerCapture(event.pointerId);
     updateControls(selected ? furniture[selected.userData.type].name + 'を選択しました。' : '空いている場所をドラッグすると視点を回転できます。');
 });
@@ -706,8 +695,6 @@ canvas.addEventListener('pointermove', event => {
         const point = pointAt(event);
         if (selected && point) position(selected, point.add(drag.offset), true);
     } else {
-        drag.moved ||= Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) > 8;
-        if (!drag.moved) return;
         orbit.theta -= (event.clientX - drag.x) * .008;
         orbit.phi = THREE.MathUtils.clamp(orbit.phi - (event.clientY - drag.y) * .008, .12, 1.25);
         drag.x = event.clientX;
@@ -719,10 +706,7 @@ canvas.addEventListener('pointermove', event => {
 });
 for (const name of ['pointerup', 'pointercancel', 'lostpointercapture']) {
     canvas.addEventListener(name, event => {
-        if (drag?.id !== event.pointerId) return;
-        const open = name === 'pointerup' && drag.wallHit && !drag.moved;
-        drag = null;
-        if (open) openWallpaper();
+        if (drag?.id === event.pointerId) drag = null;
     });
 }
 rotate.addEventListener('click', () => {
