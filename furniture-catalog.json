@@ -31,7 +31,7 @@
   },
   {
     "id": "tv",
-    "name": "テレビ 50インチ",
+    "name": "テレビ",
     "placement": "surface",
     "supportTypes": [
       "tvbench"
