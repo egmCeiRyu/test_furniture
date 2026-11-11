@@ -225,7 +225,7 @@ function activateFloor(loaded) {
     camera.lookAt(cameraTarget);
     updateWallVisibility();
     const wall = [...activeFloor.wallMaterials][0];
-    wallColor.disabled = !wall;
+    wallColor.disabled = !wall || Boolean(activeFloor.wallpaper.id);
     if (wall) wallColor.value = activeFloor.plainWallColor;
     wallpaperButton.disabled = !wall;
 }
@@ -272,7 +272,7 @@ function setWallpaperControls(open) {
     for (const control of [...catalog, floorSelect, wallColor, preview, wallpaperButton]) {
         control.disabled = open;
     }
-    wallColor.disabled = open || !activeFloor.wallMaterials.size;
+    wallColor.disabled = open || !activeFloor.wallMaterials.size || Boolean(activeFloor.wallpaper.id);
     wallpaperButton.disabled = open || !activeFloor.wallMaterials.size;
     rotate.disabled = remove.disabled = open || !selected;
 }
@@ -788,7 +788,7 @@ floorSelect.addEventListener('change', async () => {
         updateControls('階のモデルを読み込めませんでした。もう一度選択してください。');
     } finally {
         for (const control of [...catalog, floorSelect, showWalls, wallpaperButton, preview]) control.disabled = false;
-        wallColor.disabled = !activeFloor.wallMaterials.size;
+        wallColor.disabled = !activeFloor.wallMaterials.size || Boolean(activeFloor.wallpaper.id);
     }
 });
 showWalls.addEventListener('change', () => {
@@ -796,6 +796,7 @@ showWalls.addEventListener('change', () => {
     resize();
 });
 wallColor.addEventListener('input', event => {
+    if (activeFloor.wallpaper.id) return;
     activeFloor.plainWallColor = event.target.value;
     activeFloor.wallpaper.id = null;
     for (const material of activeFloor.wallMaterials) {
@@ -857,6 +858,7 @@ preview.addEventListener('click', async () => {
     } catch (error) {
         console.error(error);
         for (const control of [...catalog, showWalls, wallColor, wallpaperButton, arScale, floorSelect, preview]) control.disabled = false;
+        wallColor.disabled = !activeFloor.wallMaterials.size || Boolean(activeFloor.wallpaper.id);
         updateControls('プレビューを作成できませんでした。');
     }
 });
@@ -876,5 +878,6 @@ document.querySelector('#back').addEventListener('click', () => {
     result.hidden = true;
     resize();
     for (const control of [...catalog, showWalls, wallColor, wallpaperButton, arScale, floorSelect, preview]) control.disabled = false;
+    wallColor.disabled = !activeFloor.wallMaterials.size || Boolean(activeFloor.wallpaper.id);
     updateControls('編集に戻りました。');
 });

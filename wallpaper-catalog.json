@@ -2,25 +2,25 @@
   {
     "id": "white-cross",
     "name": "白いクロス",
-    "thumbnail": "./wallpaper-thumbnails/01_white_cross.jpg",
-    "url": "https://ar-housing-platform-418384447723-ap-northeast-1-an.s3.ap-northeast-1.amazonaws.com/clients/wallpaper-catalog/white-cross/thumbnail.jpg?v=c11aae3496ad"
+    "thumbnail": "./wallpaper-thumbnails/01_white_cross.jpg?v=b4dd9053f374",
+    "url": "https://ar-housing-platform-418384447723-ap-northeast-1-an.s3.ap-northeast-1.amazonaws.com/clients/wallpaper-catalog/white-cross/thumbnail.jpg?v=b4dd9053f374"
   },
   {
     "id": "washi-beige",
     "name": "和紙調クロス",
-    "thumbnail": "./wallpaper-thumbnails/02_washi_beige.jpg",
-    "url": "https://ar-housing-platform-418384447723-ap-northeast-1-an.s3.ap-northeast-1.amazonaws.com/clients/wallpaper-catalog/washi-beige/thumbnail.jpg?v=c29d15632f32"
+    "thumbnail": "./wallpaper-thumbnails/02_washi_beige.jpg?v=58019497c71c",
+    "url": "https://ar-housing-platform-418384447723-ap-northeast-1-an.s3.ap-northeast-1.amazonaws.com/clients/wallpaper-catalog/washi-beige/thumbnail.jpg?v=58019497c71c"
   },
   {
     "id": "concrete-gray",
     "name": "コンクリート調",
-    "thumbnail": "./wallpaper-thumbnails/03_concrete_gray.jpg",
-    "url": "https://ar-housing-platform-418384447723-ap-northeast-1-an.s3.ap-northeast-1.amazonaws.com/clients/wallpaper-catalog/concrete-gray/thumbnail.jpg?v=d51001eaaa33"
+    "thumbnail": "./wallpaper-thumbnails/03_concrete_gray.jpg?v=a675c36940ff",
+    "url": "https://ar-housing-platform-418384447723-ap-northeast-1-an.s3.ap-northeast-1.amazonaws.com/clients/wallpaper-catalog/concrete-gray/thumbnail.jpg?v=a675c36940ff"
   },
   {
     "id": "woven-beige",
     "name": "織物調クロス",
-    "thumbnail": "./wallpaper-thumbnails/04_woven_beige.jpg",
-    "url": "https://ar-housing-platform-418384447723-ap-northeast-1-an.s3.ap-northeast-1.amazonaws.com/clients/wallpaper-catalog/woven-beige/thumbnail.jpg?v=1c4918fab1e5"
+    "thumbnail": "./wallpaper-thumbnails/04_woven_beige.jpg?v=ab01a2a124be",
+    "url": "https://ar-housing-platform-418384447723-ap-northeast-1-an.s3.ap-northeast-1.amazonaws.com/clients/wallpaper-catalog/woven-beige/thumbnail.jpg?v=ab01a2a124be"
   }
 ]
