@@ -147,8 +147,9 @@ function updateWallVisibility() {
     activeFloor.architecture.traverse(object => {
         if (!object.isMesh) return;
         const materials = Array.isArray(object.material) ? object.material : [object.material];
-        object.visible = showWalls.checked || floorMeshes.has(object) ||
-            materials.some(material => material.name === 'internalWall');
+        const isRoof = materials.some(material => material.name === 'roof');
+        object.visible = !isRoof && (showWalls.checked || floorMeshes.has(object) ||
+            materials.some(material => material.name === 'internalWall'));
     });
 }
 
