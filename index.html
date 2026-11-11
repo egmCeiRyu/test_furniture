@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>QRIE · 家具配置エディター</title>
-<link rel="stylesheet" href="./style.css?v=multi-room-floor">
+<link rel="stylesheet" href="./style.css?v=full-frame-house">
 <script type="importmap">{"imports":{"three":"./vendor/three/build/three.module.js","three/addons/":"./vendor/three/examples/jsm/"}}</script>
 <script type="module" src="./vendor/model-viewer/dist/model-viewer.min.js"></script>
 
@@ -24,7 +24,8 @@
 <div class="catalog" aria-label="家具一覧">
 
 </div>
-<label>壁の色 <input id="wall-color" type="color" value="#e8ded0"></label>
+<label><input id="show-walls" type="checkbox"> 外壁・窓を表示</label>
+<label>編集時の壁色 <input id="wall-color" type="color" value="#e8ded0"></label>
 <label>AR表示の縮尺
 <select id="ar-scale">
 <option>10%</option><option>20%</option><option>30%</option><option>40%</option><option>50%</option>
@@ -55,9 +56,9 @@ const notice = document.getElementById('stage-notice');
 if (location.protocol === 'file:') {
     notice.textContent = '3Dモデルを表示するには、Abrir QRIE.cmd を起動してください。';
 } else {
-    import('./editor.js?v=s3-furniture').then(() => notice.remove()).catch(error => {
+    import('./editor.js?v=full-frame-house').then(() => notice.remove()).catch(error => {
         console.error(error);
-        notice.textContent = '3Dモデルを読み込めませんでした。ブラウザーでWebGLが有効か確認してください。';
+        notice.textContent = '3Dモデルを読み込めませんでした。接続を確認してページを再読み込みしてください。';
     });
 }
 </script>

@@ -1,0 +1,10 @@
+[
+  {
+    "name": "1階",
+    "url": "https://ar-housing-platform-418384447723-ap-northeast-1-an.s3.ap-northeast-1.amazonaws.com/clients/floor-catalog/first-floor/house.glb?v=062233c3e5a8"
+  },
+  {
+    "name": "2階",
+    "url": "https://ar-housing-platform-418384447723-ap-northeast-1-an.s3.ap-northeast-1.amazonaws.com/clients/floor-catalog/second-floor/house.glb"
+  }
+]

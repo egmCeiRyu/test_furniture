@@ -19,15 +19,17 @@ button:focus-visible, a:focus-visible { outline: 3px solid #a05b28; }
 label { display: flex; align-items: center; gap: 10px; margin-block: 16px; }
 input[type="color"] { width: 44px; height: 36px; }
 hr { border: 0; border-top: 1px solid #ccd7e3; }
-.workspace { background: #e5ebf1; min-width: 0; }
-#stage, model-viewer { width: 100%; height: clamp(320px, 65vh, 690px); }
+.workspace { display: flex; flex-direction: column; background: #e5ebf1; min-width: 0; }
+#stage, #viewer { width: 100%; flex: 1; min-height: clamp(320px, 65vh, 690px); }
+#result { display: flex; flex-direction: column; flex: 1; }
+#stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 canvas { display: block; cursor: grab; }
 .result-actions { padding: 12px; }
 [hidden] { display: none !important; }
 @media (max-width: 700px) {
     main { grid-template-columns: 1fr; gap: 10px; margin-block: 12px; }
     aside { padding: 12px; }
-    #stage, model-viewer { height: 52vh; min-height: 300px; }
+    #stage, #viewer { min-height: max(300px, 52vh); }
 }
 
 select { min-height: 44px; padding: 6px 10px; font: inherit; border: 1px solid #acbfd2; border-radius: 0; background: white; color: inherit; }
