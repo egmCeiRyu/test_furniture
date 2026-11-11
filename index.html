@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>QRIE · 家具配置エディター</title>
-<link rel="stylesheet" href="./style.css?v=wallpaper-picker">
+<link rel="stylesheet" href="./style.css?v=wallpaper-mobile">
 <script type="importmap">{"imports":{"three":"./vendor/three/build/three.module.js","three/addons/":"./vendor/three/examples/jsm/"}}</script>
 <script type="module" src="./vendor/model-viewer/dist/model-viewer.min.js"></script>
 
@@ -55,11 +55,13 @@
 <section id="wallpaper-sheet" class="wallpaper-sheet" role="dialog" aria-labelledby="wallpaper-title" hidden>
     <h2 id="wallpaper-title">壁紙を選ぶ</h2>
     <p id="wallpaper-scope"></p>
+    <div class="wallpaper-content">
     <div id="wallpaper-options" class="wallpaper-options" aria-label="壁紙の種類"></div>
     <label class="wallpaper-size">柄の大きさ <output id="wallpaper-size-value" for="wallpaper-size">100 cm</output>
         <input id="wallpaper-size" type="range" min="25" max="200" step="25" value="100">
     </label>
     <p id="wallpaper-message" role="status"></p>
+    </div>
     <div class="wallpaper-actions">
         <button id="wallpaper-cancel" type="button">キャンセル</button>
         <button id="wallpaper-apply" type="button" class="primary">適用</button>
