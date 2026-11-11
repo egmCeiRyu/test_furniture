@@ -10,6 +10,21 @@ const catalogResponse = await fetch('./furniture-catalog.json', { cache: 'no-sto
 if (!catalogResponse.ok) throw new Error('Furniture catalog unavailable');
 const entries = await catalogResponse.json();
 const furniture = Object.fromEntries(entries.map(entry => [entry.id, entry]));
+const wallpaperResponse = await fetch('./wallpaper-catalog.json', { cache: 'no-store' });
+if (!wallpaperResponse.ok) throw new Error('Wallpaper catalog unavailable');
+const wallpapers = await wallpaperResponse.json();
+const wallpaperButton = document.querySelector('#choose-wallpaper');
+const wallpaperSheet = document.querySelector('#wallpaper-sheet');
+const wallpaperOptions = document.querySelector('#wallpaper-options');
+const wallpaperSize = document.querySelector('#wallpaper-size');
+const wallpaperSizeValue = document.querySelector('#wallpaper-size-value');
+const wallpaperMessage = document.querySelector('#wallpaper-message');
+const wallpaperApply = document.querySelector('#wallpaper-apply');
+const wallpaperCancel = document.querySelector('#wallpaper-cancel');
+const wallpaperTextures = new Map();
+const textureLoader = new THREE.TextureLoader();
+let wallpaperDraft = null;
+let wallpaperOutline = null;
 const catalogContainer = document.querySelector('.catalog');
 catalogContainer.replaceChildren();
 for (const entry of entries) {
@@ -71,7 +86,7 @@ let floorDepth;
 const cameraTarget = new THREE.Vector3();
 for (const button of catalog) button.disabled = true;
 preview.disabled = true;
-floorSelect.disabled = showWalls.disabled = wallColor.disabled = true;
+floorSelect.disabled = showWalls.disabled = wallColor.disabled = wallpaperButton.disabled = true;
 
 function addFloorGrid(material) {
     const gridMaterial = material.clone();
@@ -100,17 +115,46 @@ function addFloorGrid(material) {
     return gridMaterial;
 }
 
+function prepareWallpaperUVs(floor) {
+    if (floor.wallpaperUVsReady) return;
+    floor.architecture.updateMatrixWorld(true);
+    for (const mesh of floor.wallMeshes) {
+        const geometry = mesh.geometry.index ? mesh.geometry.toNonIndexed() : mesh.geometry.clone();
+        const positions = geometry.getAttribute('position');
+        const uv = new Float32Array(positions.count * 2);
+        const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+        const normal = new THREE.Vector3(), edge = new THREE.Vector3();
+        for (let index = 0; index < positions.count; index += 3) {
+            a.fromBufferAttribute(positions, index).applyMatrix4(mesh.matrixWorld);
+            b.fromBufferAttribute(positions, index + 1).applyMatrix4(mesh.matrixWorld);
+            c.fromBufferAttribute(positions, index + 2).applyMatrix4(mesh.matrixWorld);
+            normal.crossVectors(edge.subVectors(b, a), c.clone().sub(a)).normalize();
+            const horizontal = Math.abs(normal.y) > 0.7;
+            const useZ = Math.abs(normal.x) > Math.abs(normal.z);
+            for (const [offset, point] of [a, b, c].entries()) {
+                uv[(index + offset) * 2] = horizontal ? point.x : useZ ? point.z : point.x;
+                uv[(index + offset) * 2 + 1] = horizontal ? point.z : point.y;
+            }
+        }
+        geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+        mesh.geometry = geometry;
+    }
+    floor.wallpaperUVsReady = true;
+}
+
 async function loadFloor(index) {
     if (floors.has(index)) return floors.get(index);
     const entry = floorEntries[index];
     const gltf = await loader.loadAsync(entry.url);
     const architecture = gltf.scene;
     const floorMeshes = [];
+    const wallMeshes = [];
     const wallMaterials = new Set();
     architecture.traverse(object => {
         if (!object.isMesh) return;
         const materials = Array.isArray(object.material) ? object.material : [object.material];
         if (materials.some(material => material.name === 'floor')) floorMeshes.push(object);
+        if (materials.some(material => material.name === 'internalWall')) wallMeshes.push(object);
         const mapped = materials.map(material => {
             if (material.name === 'floor') return addFloorGrid(material);
             if (!['wallpaint', 'internalWall'].includes(material.name)) return material;
@@ -137,7 +181,10 @@ async function loadFloor(index) {
     room.name = entry.name;
     const pieces = new THREE.Group();
     room.add(architecture, pieces);
-    const loaded = { room, pieces, architecture, floorMeshes, floorBounds, wallMaterials };
+    const loaded = {
+        room, pieces, architecture, floorMeshes, floorBounds, wallMaterials, wallMeshes,
+        wallpaper: { id: null, size: 100 }, wallpaperTexture: null, plainWallColor: '#c9bead'
+    };
     floors.set(index, loaded);
     return loaded;
 }
@@ -176,13 +223,190 @@ function activateFloor(loaded) {
     updateWallVisibility();
     const wall = [...activeFloor.wallMaterials][0];
     wallColor.disabled = !wall;
-    if (wall) wallColor.value = '#' + wall.color.getHexString();
+    if (wall) wallColor.value = activeFloor.plainWallColor;
+    wallpaperButton.disabled = !wall;
 }
 
 activateFloor(await loadFloor(Number(floorSelect.value)));
 for (const button of catalog) button.disabled = false;
 preview.disabled = false;
 floorSelect.disabled = showWalls.disabled = false;
+
+function refreshWallpaperOptions() {
+    const id = activeFloor.wallpaper.id ?? '';
+    for (const button of wallpaperOptions.querySelectorAll('button')) {
+        button.setAttribute('aria-pressed', String(button.dataset.wallpaper === id));
+    }
+    wallpaperSize.value = String(activeFloor.wallpaper.size);
+    wallpaperSizeValue.value = activeFloor.wallpaper.size + ' cm';
+    wallpaperSize.disabled = !activeFloor.wallpaper.id;
+}
+
+for (const entry of [{ id: '', name: '単色' }, ...wallpapers]) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.wallpaper = entry.id;
+    button.className = 'wallpaper-option';
+    if (entry.thumbnail) {
+        const image = document.createElement('img');
+        image.src = entry.thumbnail;
+        image.alt = '';
+        image.width = image.height = 72;
+        button.append(image);
+    } else {
+        const swatch = document.createElement('span');
+        swatch.className = 'wallpaper-plain';
+        button.append(swatch);
+    }
+    const name = document.createElement('span');
+    name.textContent = entry.name;
+    button.append(name);
+    button.addEventListener('click', () => chooseWallpaper(entry.id));
+    wallpaperOptions.append(button);
+}
+
+function setWallpaperControls(open) {
+    for (const control of [...catalog, floorSelect, wallColor, preview, wallpaperButton]) {
+        control.disabled = open;
+    }
+    wallColor.disabled = open || !activeFloor.wallMaterials.size;
+    wallpaperButton.disabled = open || !activeFloor.wallMaterials.size;
+    rotate.disabled = remove.disabled = open || !selected;
+}
+
+function clearWallpaperOutline() {
+    if (!wallpaperOutline) return;
+    scene.remove(wallpaperOutline);
+    wallpaperOutline.traverse(line => {
+        line.geometry?.dispose();
+        line.material?.dispose();
+    });
+    wallpaperOutline = null;
+}
+
+function openWallpaper() {
+    if (wallpaperDraft || !result.hidden || !activeFloor.wallMaterials.size) return;
+    armed = null;
+    selected = null;
+    prepareWallpaperUVs(activeFloor);
+    wallpaperDraft = {
+        floor: activeFloor,
+        savedState: { ...activeFloor.wallpaper },
+        savedTexture: activeFloor.wallpaperTexture,
+        materials: [...activeFloor.wallMaterials].map(material => ({
+            material, map: material.map, color: material.color.clone()
+        })),
+        request: 0
+    };
+    wallpaperOutline = new THREE.Group();
+    for (const mesh of activeFloor.wallMeshes) {
+        const outline = new THREE.LineSegments(
+            new THREE.EdgesGeometry(mesh.geometry, 45),
+            new THREE.LineBasicMaterial({ color: '#2f6c9e', transparent: true, opacity: 0.65 })
+        );
+        outline.matrixAutoUpdate = false;
+        outline.matrix.copy(mesh.matrixWorld);
+        wallpaperOutline.add(outline);
+    }
+    scene.add(wallpaperOutline);
+    document.querySelector('#wallpaper-scope').textContent = activeFloor.room.name + '・内壁すべて';
+    wallpaperMessage.textContent = '壁紙をタップすると、その場で確認できます。';
+    wallpaperApply.disabled = false;
+    refreshWallpaperOptions();
+    wallpaperSheet.hidden = false;
+    setWallpaperControls(true);
+    draw();
+    if (window.matchMedia('(max-width: 700px)').matches) stage.scrollIntoView({ block: 'start', behavior: 'smooth' });
+}
+
+async function chooseWallpaper(id) {
+    const draft = wallpaperDraft;
+    if (!draft) return;
+    const request = ++draft.request;
+    wallpaperApply.disabled = true;
+    wallpaperMessage.textContent = '壁紙を読み込んでいます…';
+    try {
+        let texture = null;
+        if (id) {
+            const entry = wallpapers.find(entry => entry.id === id);
+            if (!wallpaperTextures.has(id)) {
+                const pending = textureLoader.loadAsync(entry.url).catch(error => {
+                    wallpaperTextures.delete(id);
+                    throw error;
+                });
+                wallpaperTextures.set(id, pending);
+            }
+            const original = await wallpaperTextures.get(id);
+            if (wallpaperDraft !== draft || draft.request !== request) return;
+            texture = original.clone();
+            texture.colorSpace = THREE.SRGBColorSpace;
+            texture.flipY = false;
+            texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+            texture.repeat.setScalar(100 / draft.floor.wallpaper.size);
+            texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+            texture.needsUpdate = true;
+        }
+        const previous = draft.floor.wallpaperTexture;
+        draft.floor.wallpaperTexture = texture;
+        draft.floor.wallpaper.id = id || null;
+        for (const material of draft.floor.wallMaterials) {
+            material.map = texture;
+            material.color.set(texture ? '#ffffff' : draft.floor.plainWallColor);
+            material.needsUpdate = true;
+        }
+        if (previous && previous !== draft.savedTexture) previous.dispose();
+        refreshWallpaperOptions();
+        wallpaperMessage.textContent = '回転して確認できます。よければ「適用」を押してください。';
+        draw();
+    } catch (error) {
+        console.error(error);
+        if (wallpaperDraft === draft && draft.request === request) {
+            wallpaperMessage.textContent = '壁紙を読み込めませんでした。もう一度選んでください。';
+        }
+    } finally {
+        if (wallpaperDraft === draft && draft.request === request) wallpaperApply.disabled = false;
+    }
+}
+
+function closeWallpaper(apply) {
+    const draft = wallpaperDraft;
+    if (!draft) return;
+    wallpaperDraft = null;
+    const current = draft.floor.wallpaperTexture;
+    if (!apply) {
+        for (const snapshot of draft.materials) {
+            snapshot.material.map = snapshot.map;
+            snapshot.material.color.copy(snapshot.color);
+            snapshot.material.needsUpdate = true;
+        }
+        draft.floor.wallpaper = draft.savedState;
+        draft.floor.wallpaperTexture = draft.savedTexture;
+        draft.savedTexture?.repeat.setScalar(100 / draft.savedState.size);
+        if (current && current !== draft.savedTexture) current.dispose();
+    } else if (draft.savedTexture && current !== draft.savedTexture) {
+        draft.savedTexture.dispose();
+    }
+    clearWallpaperOutline();
+    wallpaperSheet.hidden = true;
+    setWallpaperControls(false);
+    updateControls(apply ? 'この階の内壁に壁紙を適用しました。' : '壁紙の変更を取り消しました。');
+    wallpaperButton.focus({ preventScroll: true });
+}
+
+wallpaperButton.addEventListener('click', openWallpaper);
+wallpaperCancel.addEventListener('click', () => closeWallpaper(false));
+wallpaperApply.addEventListener('click', () => closeWallpaper(true));
+wallpaperSize.addEventListener('input', () => {
+    if (!wallpaperDraft) return;
+    const floor = wallpaperDraft.floor;
+    floor.wallpaper.size = Number(wallpaperSize.value);
+    floor.wallpaperTexture?.repeat.setScalar(100 / floor.wallpaper.size);
+    wallpaperSizeValue.value = floor.wallpaper.size + ' cm';
+    draw();
+});
+document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && wallpaperDraft) closeWallpaper(false);
+});
 
 const pieceTemplates = new Map();
 const pendingModels = new Map();
@@ -433,9 +657,9 @@ for (const button of catalog) {
             return;
         } finally {
             loadingModel = false;
-            button.disabled = false;
+            button.disabled = !!wallpaperDraft || !result.hidden;
         }
-        if (!result.hidden) return;
+        if (!result.hidden || wallpaperDraft) return;
         armed = type;
         selected = null;
         updateControls(furniture[type].placement === 'surface'
@@ -451,17 +675,28 @@ canvas.addEventListener('pointerdown', event => {
     if (event.button !== 0 || drag || gesture) return;
     const point = pointAt(event);
     if (!point) return;
-    if (armed && onFloor(point)) {
+    if (!wallpaperDraft && armed && onFloor(point)) {
         addPiece(armed, point);
         return;
     }
 
     const hit = ray.intersectObjects(activeFloor.pieces.children, true)[0];
-    selected = hit?.object ?? null;
+    const architectureHit = ray.intersectObject(activeFloor.architecture, true)
+        .find(hit => hit.object.visible);
+    const hitMaterial = architectureHit && (Array.isArray(architectureHit.object.material)
+        ? architectureHit.object.material[architectureHit.face?.materialIndex ?? 0]
+        : architectureHit.object.material);
+    const wallHit = hitMaterial?.name === 'internalWall' ? architectureHit : null;
+    const wallIsClosest = wallHit && (!hit || wallHit.distance < hit.distance);
+    selected = wallpaperDraft || wallIsClosest ? null : hit?.object ?? null;
     while (selected && !selected.userData.type) selected = selected.parent;
     drag = selected
         ? { id: event.pointerId, offset: selected.getWorldPosition(new THREE.Vector3()).sub(point) }
-        : { id: event.pointerId, x: event.clientX, y: event.clientY };
+        : {
+            id: event.pointerId, x: event.clientX, y: event.clientY,
+            startX: event.clientX, startY: event.clientY, moved: false,
+            wallHit: !wallpaperDraft && !!wallHit
+        };
     canvas.setPointerCapture(event.pointerId);
     updateControls(selected ? furniture[selected.userData.type].name + 'を選択しました。' : '空いている場所をドラッグすると視点を回転できます。');
 });
@@ -471,6 +706,8 @@ canvas.addEventListener('pointermove', event => {
         const point = pointAt(event);
         if (selected && point) position(selected, point.add(drag.offset), true);
     } else {
+        drag.moved ||= Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) > 8;
+        if (!drag.moved) return;
         orbit.theta -= (event.clientX - drag.x) * .008;
         orbit.phi = THREE.MathUtils.clamp(orbit.phi - (event.clientY - drag.y) * .008, .12, 1.25);
         drag.x = event.clientX;
@@ -482,7 +719,10 @@ canvas.addEventListener('pointermove', event => {
 });
 for (const name of ['pointerup', 'pointercancel', 'lostpointercapture']) {
     canvas.addEventListener(name, event => {
-        if (drag?.id === event.pointerId) drag = null;
+        if (drag?.id !== event.pointerId) return;
+        const open = name === 'pointerup' && drag.wallHit && !drag.moved;
+        drag = null;
+        if (open) openWallpaper();
     });
 }
 rotate.addEventListener('click', () => {
@@ -504,7 +744,7 @@ floorSelect.addEventListener('change', async () => {
     selected = null;
     armed = null;
     const previousIndex = floorEntries.findIndex(entry => entry.name === activeFloor.room.name);
-    const controls = [...catalog, floorSelect, showWalls, wallColor, preview, rotate, remove];
+    const controls = [...catalog, floorSelect, showWalls, wallColor, wallpaperButton, preview, rotate, remove];
     for (const control of controls) control.disabled = true;
     status.textContent = '階のモデルを読み込んでいます…';
     try {
@@ -517,7 +757,7 @@ floorSelect.addEventListener('change', async () => {
         floorSelect.value = String(previousIndex);
         updateControls('階のモデルを読み込めませんでした。もう一度選択してください。');
     } finally {
-        for (const control of [...catalog, floorSelect, showWalls, preview]) control.disabled = false;
+        for (const control of [...catalog, floorSelect, showWalls, wallpaperButton, preview]) control.disabled = false;
         wallColor.disabled = !activeFloor.wallMaterials.size;
     }
 });
@@ -526,13 +766,21 @@ showWalls.addEventListener('change', () => {
     resize();
 });
 wallColor.addEventListener('input', event => {
-    for (const material of activeFloor.wallMaterials) material.color.set(event.target.value);
+    activeFloor.plainWallColor = event.target.value;
+    activeFloor.wallpaper.id = null;
+    for (const material of activeFloor.wallMaterials) {
+        material.map = null;
+        material.color.set(event.target.value);
+        material.needsUpdate = true;
+    }
+    activeFloor.wallpaperTexture?.dispose();
+    activeFloor.wallpaperTexture = null;
     draw();
 });
 
 preview.addEventListener('click', async () => {
     if (gesture || drag) return;
-    const editingControls = [...catalog, showWalls, wallColor, arScale, floorSelect, rotate, remove, preview];
+    const editingControls = [...catalog, showWalls, wallColor, wallpaperButton, arScale, floorSelect, rotate, remove, preview];
     for (const control of editingControls) control.disabled = true;
     try {
         const exporter = new GLTFExporter();
@@ -571,13 +819,13 @@ preview.addEventListener('click', async () => {
         status.textContent = activeFloor.room.name + 'の配置を確認できます。ARでは、この階の床が実際の床と同じ高さになります。';
     } catch (error) {
         console.error(error);
-        for (const control of [...catalog, showWalls, wallColor, arScale, floorSelect, preview]) control.disabled = false;
+        for (const control of [...catalog, showWalls, wallColor, wallpaperButton, arScale, floorSelect, preview]) control.disabled = false;
         updateControls('プレビューを作成できませんでした。');
     }
 });
 document.querySelector('#back').addEventListener('click', () => {
     result.hidden = true;
     stage.hidden = false;
-    for (const control of [...catalog, showWalls, wallColor, arScale, floorSelect, preview]) control.disabled = false;
+    for (const control of [...catalog, showWalls, wallColor, wallpaperButton, arScale, floorSelect, preview]) control.disabled = false;
     updateControls('編集に戻りました。');
 });

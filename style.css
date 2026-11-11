@@ -72,3 +72,33 @@ select { min-height: 44px; padding: 6px 10px; font: inherit; border: 1px solid #
     white-space: nowrap;
     pointer-events: none;
 }
+
+#choose-wallpaper { width: 100%; margin-top: 14px; }
+.wallpaper-sheet {
+    position: fixed; right: 24px; bottom: 24px; z-index: 20;
+    width: min(520px, calc(100vw - 32px)); max-height: 60vh;
+    padding: 20px; overflow-y: auto; background: #fff;
+    border: 1px solid #bdcbd7; border-radius: 16px;
+    box-shadow: 0 8px 36px #142e5430;
+}
+.wallpaper-sheet h2 { margin: 0; font-size: 1.15rem; }
+.wallpaper-sheet p { margin: 6px 0 12px; }
+.wallpaper-options { display: flex; gap: 10px; overflow-x: auto; padding: 4px 2px 10px; scroll-snap-type: x proximity; }
+.wallpaper-option { flex: 0 0 92px; display: grid; gap: 6px; padding: 6px; font-size: .75rem; scroll-snap-align: start; }
+.wallpaper-option img, .wallpaper-plain { display: block; width: 76px; height: 68px; object-fit: cover; }
+.wallpaper-plain { background: #c9bead; }
+.wallpaper-option[aria-pressed="true"] { outline: 3px solid #2f6c9e; outline-offset: -1px; background: #eef5fb; color: #142e54; }
+.wallpaper-size { flex-wrap: wrap; margin: 8px 0; font-size: .85rem; }
+.wallpaper-size output { margin-left: auto; }
+.wallpaper-size input { flex-basis: 100%; width: 100%; min-height: 36px; accent-color: #245e9b; }
+#wallpaper-message { min-height: 20px; font-size: .8rem; }
+.wallpaper-actions { display: flex; gap: 10px; }
+.wallpaper-actions button { flex: 1; min-height: 48px; }
+.wallpaper-actions .primary { margin: 0; width: auto; }
+@media (max-width: 700px) {
+    .workspace { order: -1; position: sticky; top: 0; z-index: 2; }
+    #stage, #viewer { min-height: max(300px, 52svh); }
+    .wallpaper-sheet { right: 0; bottom: 0; width: 100%; max-height: 48svh; padding: 14px 16px max(14px, env(safe-area-inset-bottom)); border-radius: 18px 18px 0 0; }
+    .wallpaper-sheet h2 { font-size: 1rem; }
+    .wallpaper-sheet p { margin: 4px 0 8px; }
+}

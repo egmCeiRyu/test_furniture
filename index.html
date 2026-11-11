@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>QRIE · 家具配置エディター</title>
-<link rel="stylesheet" href="./style.css?v=full-frame-house">
+<link rel="stylesheet" href="./style.css?v=wallpaper-picker">
 <script type="importmap">{"imports":{"three":"./vendor/three/build/three.module.js","three/addons/":"./vendor/three/examples/jsm/"}}</script>
 <script type="module" src="./vendor/model-viewer/dist/model-viewer.min.js"></script>
 
@@ -25,6 +25,7 @@
 
 </div>
 <label><input id="show-walls" type="checkbox"> 外壁・窓を表示</label>
+<button id="choose-wallpaper" type="button" disabled>壁紙を選ぶ</button>
 <label>内壁の色 <input id="wall-color" type="color" value="#e8ded0"></label>
 <label>AR表示の縮尺
 <select id="ar-scale">
@@ -51,12 +52,25 @@
 </div>
 </section>
 </main>
+<section id="wallpaper-sheet" class="wallpaper-sheet" role="dialog" aria-labelledby="wallpaper-title" hidden>
+    <h2 id="wallpaper-title">壁紙を選ぶ</h2>
+    <p id="wallpaper-scope"></p>
+    <div id="wallpaper-options" class="wallpaper-options" aria-label="壁紙の種類"></div>
+    <label class="wallpaper-size">柄の大きさ <output id="wallpaper-size-value" for="wallpaper-size">100 cm</output>
+        <input id="wallpaper-size" type="range" min="25" max="200" step="25" value="100">
+    </label>
+    <p id="wallpaper-message" role="status"></p>
+    <div class="wallpaper-actions">
+        <button id="wallpaper-cancel" type="button">キャンセル</button>
+        <button id="wallpaper-apply" type="button" class="primary">適用</button>
+    </div>
+</section>
 <script>
 const notice = document.getElementById('stage-notice');
 if (location.protocol === 'file:') {
     notice.textContent = '3Dモデルを表示するには、Abrir QRIE.cmd を起動してください。';
 } else {
-    import('./editor.js?v=walls-without-roof').then(() => notice.remove()).catch(error => {
+    import('./editor.js?v=wallpaper-picker').then(() => notice.remove()).catch(error => {
         console.error(error);
         notice.textContent = '3Dモデルを読み込めませんでした。接続を確認してページを再読み込みしてください。';
     });
