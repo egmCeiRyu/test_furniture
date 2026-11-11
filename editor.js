@@ -57,7 +57,7 @@ const light = new THREE.DirectionalLight(0xffffff, 2);
 light.position.set(3, 8, 6);
 scene.add(light);
 const loader = new GLTFLoader();
-const floorsResponse = await fetch('./house-floors.json');
+const floorsResponse = await fetch('./house-floors.json', { cache: 'no-store' });
 if (!floorsResponse.ok) throw new Error('House floor catalog unavailable');
 const floorEntries = await floorsResponse.json();
 const floors = new Map();
@@ -214,8 +214,6 @@ async function loadPiece(type) {
         const dimensions = [size.x, size.z, size.y].map(centimeters).join(' × ');
         const template = { model, top: size.y, dimensions };
         pieceTemplates.set(type, template);
-        const button = catalog.find(button => button.dataset.piece === type);
-        button.textContent = entry.name + ' · ' + dimensions + ' cm';
         return template;
     })();
     pendingModels.set(type, task);
