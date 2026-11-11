@@ -1,15 +1,27 @@
 import * as THREE from 'three';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const stage = document.querySelector('#stage');
 const status = document.querySelector('#status');
 const rotate = document.querySelector('#rotate');
 const remove = document.querySelector('#remove');
-const catalog = [...document.querySelectorAll('[data-piece]')];
+const catalogResponse = await fetch('./furniture-catalog.json');
+if (!catalogResponse.ok) throw new Error('Furniture catalog unavailable');
+const entries = await catalogResponse.json();
+const furniture = Object.fromEntries(entries.map(entry => [entry.id, entry]));
+const catalogContainer = document.querySelector('.catalog');
+catalogContainer.replaceChildren();
+for (const entry of entries) {
+    const button = document.createElement('button');
+    button.dataset.piece = entry.id;
+    button.textContent = entry.name;
+    catalogContainer.append(button);
+}
+const catalog = [...catalogContainer.querySelectorAll('button')];
 const preview = document.querySelector('#preview');
 const result = document.querySelector('#result');
 const viewer = document.querySelector('#viewer');
-const download = document.querySelector('#download');
 const arViewer = document.querySelector('#ar-viewer');
 const arScale = document.querySelector('#ar-scale');
 const launchAR = document.querySelector('#launch-ar');
@@ -109,46 +121,48 @@ grid.position.y = .002;
 grid.scale.z = floorDepth / floorWidth;
 scene.add(grid);
 
-const furniture = {
-    sofa: { name: 'ソファ', width: 2, depth: .9 },
-    table: { name: 'テーブル', width: 1.3, depth: .8 },
-    chair: { name: '椅子', width: .55, depth: .55 }
-};
-function makePiece(type) {
-    const piece = new THREE.Group();
-    piece.userData.type = type;
-    if (type === 'sofa') {
-        box(piece, 2, .34, .9, 0, .25, 0, '#476d65');
-        box(piece, 2, .5, .18, 0, .58, -.36, '#476d65');
-        for (const side of [-1, 1]) {
-            box(piece, .17, .33, .9, side * .91, .48, 0, '#385950');
-            box(piece, .79, .12, .68, side * .41, .45, .07, '#719184');
-        }
-    } else {
-        const table = type === 'table';
-        const { width, depth } = furniture[type];
-        const height = table ? .75 : .46;
-        const wood = table ? '#835b40' : '#304f75';
-        box(piece, width, .08, depth, 0, height, 0, wood);
-        for (const x of [-1, 1]) {
-            for (const z of [-1, 1]) {
-                box(piece, .07, height, .07, x * (width / 2 - .06), height / 2, z * (depth / 2 - .06), wood);
-            }
-        }
-        if (!table) box(piece, .55, .43, .08, 0, .68, -.235, wood);
-    }
-    return piece;
-}
-
 const pieceTemplates = new Map();
+const pendingModels = new Map();
+const loader = new GLTFLoader();
 const centimeters = meters => Math.round(meters * 1000) / 10;
-for (const button of catalog) {
-    const type = button.dataset.piece;
-    const model = makePiece(type);
-    const bounds = new THREE.Box3().setFromObject(model);
-    const size = bounds.getSize(new THREE.Vector3());
-    const dimensions = [size.x, size.z, size.y].map(centimeters).join(' × ');
-    pieceTemplates.set(type, { model, top: bounds.max.y, dimensions });
+
+async function loadPiece(type) {
+    if (pieceTemplates.has(type)) return pieceTemplates.get(type);
+    if (pendingModels.has(type)) return pendingModels.get(type);
+    const entry = furniture[type];
+    const task = (async () => {
+        if (!entry.url) throw new Error('Model has not been uploaded to S3');
+        const gltf = await loader.loadAsync(entry.url);
+        const model = new THREE.Group();
+        model.name = entry.name;
+        model.userData.type = type;
+        gltf.scene.scale.setScalar(entry.scale ?? 1);
+        const bounds = new THREE.Box3().setFromObject(gltf.scene);
+        const size = bounds.getSize(new THREE.Vector3());
+        if (![size.x, size.y, size.z].every(value => Number.isFinite(value) && value > 0)) {
+            throw new Error('Invalid model dimensions');
+        }
+        gltf.scene.position.sub(new THREE.Vector3(
+            (bounds.min.x + bounds.max.x) / 2,
+            bounds.min.y,
+            (bounds.min.z + bounds.max.z) / 2
+        ));
+        model.add(gltf.scene);
+        entry.width = size.x;
+        entry.depth = size.z;
+        const dimensions = [size.x, size.z, size.y].map(centimeters).join(' × ');
+        const template = { model, top: size.y, dimensions };
+        pieceTemplates.set(type, template);
+        const button = catalog.find(button => button.dataset.piece === type);
+        button.textContent = entry.name + ' · ' + dimensions + ' cm';
+        return template;
+    })();
+    pendingModels.set(type, task);
+    try {
+        return await task;
+    } finally {
+        pendingModels.delete(type);
+    }
 }
 
 const sizeFlag = document.querySelector('#size-flag');
@@ -184,7 +198,7 @@ function draw() {
         sizeFlag.textContent = furniture[type].name + ' · ' + dimensions + ' cm';
         flaggedType = type;
     }
-    flagPosition.copy(selected.position);
+    selected.getWorldPosition(flagPosition);
     flagPosition.y += top;
     flagPosition.project(camera);
     const x = (flagPosition.x + 1) * stage.clientWidth / 2;
@@ -223,27 +237,66 @@ function pointAt(event) {
 function onFloor(point) {
     return point && Math.abs(point.x) <= floorWidth / 2 && Math.abs(point.z) <= floorDepth / 2;
 }
-function position(piece, point) {
+function position(piece, point, usePointer = false) {
+    const entry = furniture[piece.userData.type];
+    if (entry.placement === 'surface') {
+        const supports = activeFloor.pieces.children.filter(candidate =>
+            candidate !== piece && entry.supportTypes.includes(candidate.userData.type)
+        );
+        const supportRay = usePointer ? ray : new THREE.Raycaster(
+            new THREE.Vector3(point.x, 20, point.z), new THREE.Vector3(0, -1, 0)
+        );
+        const hits = supportRay.intersectObjects(supports, true).filter(hit => {
+            let owner = hit.object;
+            while (owner && !owner.userData.type) owner = owner.parent;
+            return supports.includes(owner) && hit.face &&
+                hit.face.normal.clone().transformDirection(hit.object.matrixWorld).y > 0.5;
+        });
+        const hit = hits[0];
+        if (!hit) return false;
+        let support = hit.object;
+        while (support && !supports.includes(support)) support = support.parent;
+        support.attach(piece);
+        piece.position.copy(support.worldToLocal(hit.point.clone()));
+        const supportEntry = furniture[support.userData.type];
+        const cosine = Math.abs(Math.cos(piece.rotation.y));
+        const sine = Math.abs(Math.sin(piece.rotation.y));
+        const halfWidth = (cosine * entry.width + sine * entry.depth) / 2;
+        const halfDepth = (sine * entry.width + cosine * entry.depth) / 2;
+        const xLimit = Math.max(0, supportEntry.width / 2 - halfWidth);
+        const zLimit = Math.max(0, supportEntry.depth / 2 - halfDepth);
+        piece.position.x = THREE.MathUtils.clamp(piece.position.x, -xLimit, xLimit);
+        piece.position.z = THREE.MathUtils.clamp(piece.position.z, -zLimit, zLimit);
+        piece.visible = true;
+        return true;
+    }
     const { width, depth } = furniture[piece.userData.type];
     const c = Math.abs(Math.cos(piece.rotation.y));
     const s = Math.abs(Math.sin(piece.rotation.y));
     const x = (c * width + s * depth) / 2;
     const z = (s * width + c * depth) / 2;
-    const xLimit = floorWidth / 2 - x;
-    const zLimit = floorDepth / 2 - z;
+    const xLimit = Math.max(0, floorWidth / 2 - x);
+    const zLimit = Math.max(0, floorDepth / 2 - z);
     piece.position.set(THREE.MathUtils.clamp(point.x, -xLimit, xLimit), 0, THREE.MathUtils.clamp(point.z, -zLimit, zLimit));
 }
 function addPiece(type, point) {
     selected = pieceTemplates.get(type).model.clone();
     activeFloor.pieces.add(selected);
-    position(selected, point);
+    if (position(selected, point, true) === false) {
+        selected.parent.remove(selected);
+        selected = null;
+        updateControls('テレビはテレビボードの天板に配置してください。');
+        return;
+    }
     armed = null;
     updateControls(furniture[type].name + 'を配置しました。ドラッグして位置を調整できます。');
 }
 for (const button of catalog) {
     const type = button.dataset.piece;
     let moved = false;
+    let loadingModel = false;
     button.addEventListener('pointerdown', event => {
+        if (!pieceTemplates.has(type)) return;
         if (event.button !== 0 || !result.hidden || gesture) return;
         moved = false;
         button.setPointerCapture(event.pointerId);
@@ -260,7 +313,7 @@ for (const button of catalog) {
                 activeFloor.pieces.add(gesture.draft);
             }
             gesture.draft.visible = true;
-            position(gesture.draft, point);
+            if (position(gesture.draft, point, true) === false) gesture.draft.visible = false;
         } else if (gesture.draft) gesture.draft.visible = false;
         draw();
     });
@@ -268,21 +321,37 @@ for (const button of catalog) {
         if (gesture?.id !== event.pointerId) return;
         const draft = gesture.draft;
         gesture = null;
-        if (draft) activeFloor.pieces.remove(draft);
+        if (draft) draft.parent.remove(draft);
         const point = pointAt(event);
         if (moved && onFloor(point)) addPiece(type, point);
         else draw();
     });
     button.addEventListener('pointercancel', () => {
-        if (gesture?.draft) activeFloor.pieces.remove(gesture.draft);
+        if (gesture?.draft) gesture.draft.parent.remove(gesture.draft);
         gesture = null;
         draw();
     });
-    button.addEventListener('click', event => {
-        if (!result.hidden || (event.detail && moved)) return;
+    button.addEventListener('click', async event => {
+        if (!result.hidden || loadingModel || (event.detail && moved)) return;
+        loadingModel = true;
+        button.disabled = true;
+        status.textContent = furniture[type].name + 'を読み込んでいます…';
+        try {
+            await loadPiece(type);
+        } catch (error) {
+            console.error(error);
+            status.textContent = 'モデルを読み込めませんでした。もう一度選択してください。';
+            return;
+        } finally {
+            loadingModel = false;
+            button.disabled = false;
+        }
+        if (!result.hidden) return;
         armed = type;
         selected = null;
-        updateControls(furniture[type].name + 'を置きたい場所をタップしてください。');
+        updateControls(furniture[type].placement === 'surface'
+            ? 'テレビボードの天板をタップしてテレビを配置してください。'
+            : furniture[type].name + 'を置きたい場所をタップしてください。');
     });
 }
 
@@ -299,9 +368,10 @@ canvas.addEventListener('pointerdown', event => {
     }
 
     const hit = ray.intersectObjects(activeFloor.pieces.children, true)[0];
-    selected = hit?.object.parent ?? null;
+    selected = hit?.object ?? null;
+    while (selected && !selected.userData.type) selected = selected.parent;
     drag = selected
-        ? { id: event.pointerId, offset: selected.position.clone().sub(point) }
+        ? { id: event.pointerId, offset: selected.getWorldPosition(new THREE.Vector3()).sub(point) }
         : { id: event.pointerId, x: event.clientX, y: event.clientY };
     canvas.setPointerCapture(event.pointerId);
     updateControls(selected ? furniture[selected.userData.type].name + 'を選択しました。' : '空いている場所をドラッグすると視点を回転できます。');
@@ -310,7 +380,7 @@ canvas.addEventListener('pointermove', event => {
     if (drag?.id !== event.pointerId) return;
     if (drag.offset) {
         const point = pointAt(event);
-        if (selected && point) position(selected, point.add(drag.offset));
+        if (selected && point) position(selected, point.add(drag.offset), true);
     } else {
         orbit.theta -= (event.clientX - drag.x) * .008;
         orbit.phi = THREE.MathUtils.clamp(orbit.phi - (event.clientY - drag.y) * .008, .12, 1.25);
@@ -329,19 +399,19 @@ for (const name of ['pointerup', 'pointercancel', 'lostpointercapture']) {
 rotate.addEventListener('click', () => {
     if (!selected) return;
     selected.rotation.y += Math.PI / 4;
-    position(selected, selected.position);
+    position(selected, selected.getWorldPosition(new THREE.Vector3()));
     draw();
 });
 remove.addEventListener('click', () => {
     if (!selected) return;
-    activeFloor.pieces.remove(selected);
+    selected.parent.remove(selected);
     selected = null;
     updateControls('家具を削除しました。');
 });
 const wallColor = document.querySelector('#wall-color');
 wallColor.value = '#' + activeFloor.wall.color.getHexString();
 floorSelect.addEventListener('change', () => {
-    if (gesture?.draft) activeFloor.pieces.remove(gesture.draft);
+    if (gesture?.draft) gesture.draft.parent.remove(gesture.draft);
     gesture = null;
     drag = null;
     selected = null;
@@ -376,7 +446,6 @@ preview.addEventListener('click', async () => {
         if (modelUrl) URL.revokeObjectURL(modelUrl);
         modelUrl = URL.createObjectURL(new Blob([buffer], { type: 'model/gltf-binary' }));
         viewer.src = modelUrl;
-        download.href = modelUrl;
         stage.hidden = true;
         result.hidden = false;
         status.textContent = activeFloor.room.name + 'の配置を確認できます。ARでは、この階の床が実際の床と同じ高さになります。';

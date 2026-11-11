@@ -1,0 +1,42 @@
+[
+  {
+    "id": "sofa",
+    "name": "ソファ",
+    "placement": "floor",
+    "url": "https://ar-housing-platform-418384447723-ap-northeast-1-an.s3.ap-northeast-1.amazonaws.com/clients/furniture-catalog/sofa/house.glb",
+    "scale": 1
+  },
+  {
+    "id": "table",
+    "name": "ダイニングテーブル",
+    "placement": "floor",
+    "supports": true,
+    "url": "https://ar-housing-platform-418384447723-ap-northeast-1-an.s3.ap-northeast-1.amazonaws.com/clients/furniture-catalog/table/house.glb",
+    "scale": 1
+  },
+  {
+    "id": "chair",
+    "name": "ダイニングチェア",
+    "placement": "floor",
+    "url": "https://ar-housing-platform-418384447723-ap-northeast-1-an.s3.ap-northeast-1.amazonaws.com/clients/furniture-catalog/chair/house.glb",
+    "scale": 1
+  },
+  {
+    "id": "tvbench",
+    "name": "テレビボード",
+    "placement": "floor",
+    "supports": true,
+    "url": "https://ar-housing-platform-418384447723-ap-northeast-1-an.s3.ap-northeast-1.amazonaws.com/clients/furniture-catalog/tvbench/house.glb",
+    "scale": 1
+  },
+  {
+    "id": "tv",
+    "name": "テレビ 50インチ",
+    "placement": "surface",
+    "supportTypes": [
+      "tvbench"
+    ],
+    "url": "https://ar-housing-platform-418384447723-ap-northeast-1-an.s3.ap-northeast-1.amazonaws.com/clients/furniture-catalog/tv/house.glb",
+    "scale": 1
+  }
+]

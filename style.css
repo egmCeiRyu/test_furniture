@@ -10,7 +10,7 @@ aside { padding: 20px; background: white; border: 1px solid #ccd7e3; }
 h1 { font-size: 1.35rem; margin: 0; }
 p { font-size: .9rem; }
 .catalog, .actions, .result-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-button, #download { min-height: 44px; padding: 8px 12px; border: 1px solid #acbfd2; border-radius: 0; background: white; color: inherit; font: inherit; cursor: pointer; text-decoration: none; }
+button { min-height: 44px; padding: 8px 12px; border: 1px solid #acbfd2; border-radius: 0; background: white; color: inherit; font: inherit; cursor: pointer; text-decoration: none; }
 button:disabled { opacity: .5; cursor: default; }
 button[aria-pressed="true"], .primary { background: #142e54; color: white; }
 button:focus-visible, a:focus-visible { outline: 3px solid #a05b28; }
