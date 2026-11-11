@@ -75,7 +75,7 @@ floorSelect.disabled = showWalls.disabled = wallColor.disabled = true;
 
 function addFloorGrid(material) {
     const gridMaterial = material.clone();
-    gridMaterial.color.set("#d8b992");
+    gridMaterial.color.set("#c19a70");
     gridMaterial.map = null;
     gridMaterial.roughness = 0.9;
     gridMaterial.metalness = 0;
@@ -115,12 +115,12 @@ async function loadFloor(index) {
             if (material.name === 'floor') return addFloorGrid(material);
             if (!['wallpaint', 'internalWall'].includes(material.name)) return material;
             const wall = material.clone();
-            wall.color.set('#e5dfd3');
+            wall.color.set('#c9bead');
             wall.map = null;
             wall.roughness = 0.88;
             wall.metalness = 0;
             previewMaterials.set(wall.uuid, material);
-            wallMaterials.add(wall);
+            if (material.name === 'internalWall') wallMaterials.add(wall);
             return wall;
         });
         object.material = Array.isArray(object.material) ? mapped : mapped[0];
@@ -542,7 +542,11 @@ preview.addEventListener('click', async () => {
             object.visible = true;
             if (!object.isMesh) return;
             const materials = Array.isArray(object.material) ? object.material : [object.material];
-            const restored = materials.map(material => previewMaterials.get(material.uuid) ?? material);
+            const restored = materials.map(material =>
+                ['floor', 'internalWall'].includes(material.name)
+                    ? material
+                    : previewMaterials.get(material.uuid) ?? material
+            );
             object.material = Array.isArray(object.material) ? restored : restored[0];
         });
         const buffer = await exporter.parseAsync(completeRoom, { binary: true });
